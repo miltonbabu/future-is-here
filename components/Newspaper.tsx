@@ -179,11 +179,11 @@ export default function Newspaper({
           <div className="flex items-center gap-4">
             <div className="border-2 border-ink p-1 bg-white">
               <QRCodeSVG
-                value={shareUrl || "https://future-time-capsule.vercel.app"}
+                value={shareUrl.length > 1500 ? `${typeof window !== "undefined" ? window.location.origin : ""}/#form` : shareUrl || "https://future-time-capsule.vercel.app"}
                 size={96}
                 bgColor="#ffffff"
                 fgColor="#1a1a1a"
-                level="M"
+                level="L"
               />
             </div>
             <div>

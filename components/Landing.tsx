@@ -95,7 +95,7 @@ export default function Landing({
                   size={150}
                   bgColor="#ffffff"
                   fgColor="#1a1a1a"
-                  level="M"
+                  level="L"
                 />
               </div>
               <p className={`landing-label text-[10px] text-accent mt-2 ${labelFont}`}>

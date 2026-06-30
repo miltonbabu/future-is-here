@@ -112,9 +112,11 @@ export default function Home() {
 
       // Encode the newspaper into the URL hash so the share link opens
       // directly to this newspaper (not the homepage).
+      // Strip image_prompt (only used for generation) and imageUrl (base64
+      // data URLs are too large for URL hashes / QR codes).
       const shared: SharedNewspaper = {
-        article: articleData.article,
-        imageUrl: resolvedImageUrl,
+        article: { ...articleData.article, image_prompt: "" },
+        imageUrl: null,
         name: input.name,
         team: input.team,
         futureDate: input.futureDate,

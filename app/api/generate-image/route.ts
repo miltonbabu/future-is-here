@@ -11,14 +11,14 @@ export async function POST(req: Request) {
     const body = await req.json();
     prompt = body?.prompt;
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
   if (typeof prompt !== "string" || !prompt.trim()) {
-    return NextResponse.json(
-      { error: "prompt is required" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "prompt is required" }, { status: 400 });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -35,14 +35,13 @@ export async function POST(req: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey.trim()}`,
       },
       body: JSON.stringify({
         model: "dall-e-2",
         prompt,
         n: 1,
         size: "1024x1024",
-        response_format: "b64_json",
       }),
     });
 
@@ -58,14 +57,29 @@ export async function POST(req: Request) {
     }
 
     const data = await res.json();
-    const b64: string | undefined = data?.data?.[0]?.b64_json;
-    if (!b64) {
-      console.error("[generate-image] OpenAI returned no b64_json");
+    // DALL-E 2 returns a URL by default. Fetch it and convert to base64
+    // so the newspaper can display it as a data URL (survives sharing).
+    const imgUrl: string | undefined = data?.data?.[0]?.url;
+    if (!imgUrl) {
+      console.error("[generate-image] OpenAI returned no image URL");
       return NextResponse.json(
         { error: "No image data returned" },
         { status: 502 },
       );
     }
+
+    // Fetch the image and convert to base64 data URL
+    const imgRes = await fetch(imgUrl);
+    if (!imgRes.ok) {
+      console.error(`[generate-image] Failed to fetch image: ${imgRes.status}`);
+      return NextResponse.json(
+        { error: "Failed to download generated image" },
+        { status: 502 },
+      );
+    }
+
+    const arrayBuffer = await imgRes.arrayBuffer();
+    const b64 = Buffer.from(arrayBuffer).toString("base64");
 
     return NextResponse.json({
       src: `data:image/png;base64,${b64}`,
