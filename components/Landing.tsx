@@ -34,9 +34,9 @@ export default function Landing({
       className={`min-h-screen ${bodyFont} paper-grain`}
       data-year="near"
     >
-      <div className="max-w-3xl mx-auto px-5 sm:px-8 py-10 sm:py-16">
+      <div className="max-w-3xl mx-auto px-5 sm:px-8 py-6 sm:py-10">
         {/* Top bar: tiny masthead + language toggle */}
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center justify-between mb-6">
           <p className={`landing-label text-[10px] sm:text-xs text-ink/70 ${labelFont}`}>
             {t(language, "timesLabel")}
           </p>
@@ -50,14 +50,14 @@ export default function Landing({
         </div>
 
         {/* Masthead */}
-        <header className="text-center pb-6 masthead-rule">
+        <header className="text-center pb-4 masthead-rule">
           <p
             className={`landing-label text-[10px] sm:text-xs text-accent mb-2 ${labelFont}`}
           >
             {t(language, "landingEyebrow")}
           </p>
           <h1
-            className={`${headlineFont} landing-headline text-5xl sm:text-7xl text-ink`}
+            className={`${headlineFont} landing-headline text-4xl sm:text-6xl text-ink`}
           >
             {t(language, "masthead")}
           </h1>
@@ -69,9 +69,9 @@ export default function Landing({
         </header>
 
         {/* Lead story */}
-        <section className="py-8 sm:py-12">
+        <section className="py-5 sm:py-8">
           <h2
-            className={`${headlineFont} landing-headline text-3xl sm:text-5xl text-center text-ink leading-[1.1] mb-6`}
+            className={`${headlineFont} landing-headline text-2xl sm:text-4xl text-center text-ink leading-[1.1] mb-4`}
           >
             {t(language, "landingHeadline")}
           </h2>
@@ -85,8 +85,8 @@ export default function Landing({
         <hr className="h-rule" />
 
         {/* QR + CTA — moved up, prominent */}
-        <section className="py-8 sm:py-10">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12 mb-8">
+        <section className="py-5 sm:py-8">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10 mb-6">
             {/* QR Code */}
             <div className="text-center">
               <div className="border-2 border-ink p-2 bg-white">

@@ -72,14 +72,6 @@ export default function Home() {
     setView("result");
   }, []);
 
-  // Revoke object URL on unmount to avoid leaks
-  useEffect(() => {
-    return () => {
-      if (photoUrl) URL.revokeObjectURL(photoUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const handleGenerate = async (input: CapsuleInput, photo: string) => {
     setLastInput(input);
     setPhotoUrl(photo);
@@ -141,7 +133,6 @@ export default function Home() {
   };
 
   const handleReset = () => {
-    if (photoUrl) URL.revokeObjectURL(photoUrl);
     setArticle(null);
     setImageUrl(null);
     setPhotoUrl(null);

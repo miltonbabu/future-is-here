@@ -205,10 +205,16 @@ export default function CapsuleForm({
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (photoUrl) URL.revokeObjectURL(photoUrl);
-    const url = URL.createObjectURL(file);
-    setPhotoUrl(url);
-    onPhotoChange(url);
+    // Convert to data URL (base64) instead of blob URL — data URLs are plain
+    // strings that survive view transitions, re-renders, and don't need
+    // revocation. Blob URLs can be unreliable in production.
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setPhotoUrl(dataUrl);
+      onPhotoChange(dataUrl);
+    };
+    reader.readAsDataURL(file);
     e.target.value = "";
   };
 
