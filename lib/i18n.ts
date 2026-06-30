@@ -1,0 +1,129 @@
+import type { Language } from "./types";
+
+const MONTHS_EN = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+export const translations = {
+  en: {
+    timesLabel: "The Future Times · Est. 2032",
+    title: "Future Time Capsule",
+    subtitle: "Tell us who you are. We'll print your 2032 front page.",
+    nameLabel: "Your Name",
+    namePlaceholder: "Ada Lovelace",
+    teamLabel: "Team Name",
+    teamPlaceholder: "BridgePath",
+    dateLabel: "Future Date",
+    dateHint: "Pick any future year — your newspaper prints from that date.",
+    achievementLabel: "Your Achievement",
+    achievementPlaceholder: "Built an AI capsule that predicts the future...",
+    surpriseMe: "Surprise me",
+    all: "All",
+    catTech: "Tech & Coding",
+    catAI: "AI Mayhem",
+    catMoney: "Money & Startups",
+    catTime: "Time & Chaos",
+    photoLabel: "Add Your Photo (stays in your browser — never uploaded)",
+    takePhoto: "Take Photo",
+    gallery: "Choose from Gallery",
+    generate: "Generate My Future",
+    printing: "PRINTING EDITION…",
+    masthead: "THE FUTURE TIMES",
+    volInfo: "Vol. XII · Zhengzhou",
+    price: "Price: One Memory",
+    byline: "By Future Correspondent · Zhengzhou Bureau",
+    rendering: "Rendering 2032 illustration…",
+    illustrationCaption: "Illustration · The Future Times Archives",
+    statusUpdate: "Status Update",
+    scanTitle: "Scan to revisit",
+    scanDesc: "Share your {year} front page with friends.",
+    copyLink: "Copy Link",
+    copied: "Copied!",
+    createAnother: "Create Another",
+    langToggle: "中文",
+    landingEyebrow: "An Extra · The Future Times",
+    landingHeadline: "Today, you are a 1-line bio. Tomorrow, you are front-page news.",
+    landingBody: "Type your name, your team, and a future worth printing. Our press will publish a single, hand-set broadsheet starring you — dated any year you choose, in any year we imagine.",
+    landingBullet1: "Photo stays in your browser — never uploaded.",
+    landingBullet2: "Covers in English and 中文.",
+    landingBullet3: "A QR keeps your front page alive after the press run.",
+    landingCta: "Enter the Press",
+    landingQrText: "Scan to start",
+    landingFooter: "Vol. XII · Zhengzhou · est. 2032",
+  },
+  zh: {
+    timesLabel: "未来时报 · 创刊于2032",
+    title: "未来时间胶囊",
+    subtitle: "告诉我们你是谁。我们将为你印制未来头版。",
+    nameLabel: "你的名字",
+    namePlaceholder: "爱达·洛芙莱斯",
+    teamLabel: "团队名称",
+    teamPlaceholder: "桥路",
+    dateLabel: "未来日期",
+    dateHint: "选择任意未来年份——报纸将从该日期印制。",
+    achievementLabel: "你的成就",
+    achievementPlaceholder: "建造了一个预测未来的AI胶囊...",
+    surpriseMe: "惊喜我",
+    all: "全部",
+    catTech: "科技与编程",
+    catAI: "AI疯狂",
+    catMoney: "金钱与创业",
+    catTime: "时间与混乱",
+    photoLabel: "添加照片（仅存于浏览器——永不上传）",
+    takePhoto: "拍照",
+    gallery: "从相册选择",
+    generate: "生成我的未来",
+    printing: "正在印制…",
+    masthead: "未来时报",
+    volInfo: "第十二卷 · 郑州",
+    price: "价格：一段记忆",
+    byline: "未来特派记者 · 郑州分社",
+    rendering: "正在渲染插图…",
+    illustrationCaption: "插图 · 未来时报档案",
+    statusUpdate: "状态更新",
+    scanTitle: "扫码回顾",
+    scanDesc: "与朋友分享你的{year}年头版。",
+    copyLink: "复制链接",
+    copied: "已复制！",
+    createAnother: "再创一个",
+    langToggle: "EN",
+    landingEyebrow: "号外 · 未来时报",
+    landingHeadline: "今日你只是一行简历，明日你便是头版新闻。",
+    landingBody: "写下你的名字、团队与一项值得铭记的成就。本报将为你单独排印一份大开本头版——日期可随意指定，年份任你想象。",
+    landingBullet1: "照片仅存于浏览器——永不上传。",
+    landingBullet2: "提供中英双语版面。",
+    landingBullet3: "印刷结束后，QR码将永久保存你的头版。",
+    landingCta: "走进印刷厂",
+    landingQrText: "扫码开始",
+    landingFooter: "第十二卷 · 郑州 · 创刊于2032",
+  },
+} as const;
+
+export type TranslationKey = keyof typeof translations.en;
+
+export function t(lang: Language, key: TranslationKey): string {
+  return translations[lang][key];
+}
+
+export function formatDate(
+  iso: string,
+  lang: Language,
+): { long: string; year: string } {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return { long: iso, year: String(y || "") };
+  if (lang === "zh") {
+    return { long: `${y}年${m}月${d}日`, year: String(y) };
+  }
+  return { long: `${MONTHS_EN[m - 1]} ${d}, ${y}`, year: String(y) };
+}

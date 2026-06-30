@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Broadsheet defaults — aged newsprint, slightly yellowed, deep brown-black ink. */
+:root {
+  --paper: 244 234 213; /* #f4ead5 — aged newsprint, warmer than cream */
+  --ink: 28 22 18; /* #1c1612 — deep brown-black, like real printer ink */
+  --accent: 120 30 30; /* deep red seal — used on the masthead + rules */
+  --accent-soft: 120 30 30;
+}
+
+/* Year-shifted accents. Pages set `data-year` on <html> to swap. */
+:root[data-year="near"] {
+  /* 2025–2030 */
+  --paper: 244 234 213;
+  --ink: 28 22 18;
+  --accent: 120 30 30; /* deep red seal */
+}
+:root[data-year="mid"] {
+  /* 2031–2040 */
+  --paper: 240 232 218;
+  --ink: 22 26 50;
+  --accent: 28 38 96; /* ink blue */
+}
+:root[data-year="far"] {
+  /* 2041+ */
+  --paper: 246 236 218;
+  --ink: 40 30 20;
+  --accent: 152 96 26; /* aged gold */
+}
+
+html,
+body {
+  background: rgb(var(--paper));
+  color: rgb(var(--ink));
+}
+
+/* Headline style — Special Elite, distressed typewriter, tight */
+.h-headline {
+  font-family:
+    "Special Elite", "Courier Prime", "Courier New", Courier, "Noto Serif SC",
+    monospace;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+/* Body text style — Courier Prime, typewriter */
+.h-body {
+  font-family:
+    "Courier Prime", "Courier New", Courier, "Noto Serif SC", monospace;
+}
+
+/* Editorial label — Courier Prime, uppercase tracking, no small-caps */
+.h-label {
+  font-family:
+    "Courier Prime", "Courier New", Courier, "Noto Serif SC", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  font-size: 0.7em;
+}
+
+/* ── Landing page styles (serif, not typewriter) ── */
+
+/* Landing headline — Libre Caslon Display, classic broadsheet */
+.landing-headline {
+  font-family:
+    "Libre Caslon Display", "Libre Caslon Text", "Noto Serif SC", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  line-height: 1.08;
+}
+
+/* Landing body — Lora, readable serif */
+.landing-body {
+  font-family: "Lora", "Libre Caslon Text", "Noto Serif SC", Georgia, serif;
+}
+
+/* Landing label — Libre Caslon Text bold, small-caps */
+.landing-label {
+  font-family: "Libre Caslon Text", "Lora", "Noto Serif SC", Georgia, serif;
+  font-variant: small-caps;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  font-weight: 700;
+}
+
+/* Double rule, classic newspaper section break */
+.h-rule {
+  border: 0;
+  border-top: 1px solid rgb(var(--ink));
+  border-bottom: 1px solid rgb(var(--ink));
+  height: 3px;
+}
+
+/* Masthead bottom border — thick + thin double rule */
+.masthead-rule {
+  border-bottom: 3px double rgb(var(--ink));
+}
+
+/* Vertical column rule between newspaper text columns */
+.col-rule {
+  column-rule: 1px solid rgba(var(--ink), 0.35);
+}
+
+/* Drop cap for first paragraph — large Special Elite initial */
+.drop-cap::first-letter {
+  float: left;
+  font-size: 4.2rem;
+  line-height: 0.82;
+  padding: 0.05em 0.1em 0 0;
+  font-weight: 400;
+  font-family: "Special Elite", "Courier New", "Noto Serif SC", monospace;
+  color: rgb(var(--accent));
+}
+
+/* Polaroid-style photo frame — classic instant-camera look:
+   white border with thicker bottom, slight rotation, soft shadow.
+   The image keeps its natural aspect ratio (object-contain) so portrait
+   and landscape uploads both display without cropping. CSS filter only. */
+.polaroid-frame {
+  display: inline-block;
+  padding: 10px 10px 36px;
+  background: #fafaf5;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  transform: rotate(-2deg);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.12),
+    0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Subtle paper texture for page background (no neon, no scanlines) */
+.paper-grain {
+  background-image:
+    radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    radial-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px);
+  background-size:
+    4px 4px,
+    7px 7px;
+  background-position:
+    0 0,
+    2px 3px;
+}
+
+/* Newspaper card — real paper texture image.
+   Uses a scanned paper texture overlay on a warm cream base.
+   The texture is a free, widely-used paper pattern. */
+.newspaper-paper {
+  background-color: #f4ead5;
+  background-image: url("https://www.transparenttextures.com/patterns/cream-paper.png");
+  background-repeat: repeat;
+  background-blend-mode: multiply;
+}
+
+/* Newsprint hyphenation for justified body text */
+.press-body {
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+@keyframes spin-ink {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.press-spinner {
+  border: 3px solid rgba(0, 0, 0, 0.12);
+  border-top-color: rgb(var(--accent));
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  animation: spin-ink 0.8s linear infinite;
+}
