@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import type { ArticleData, CapsuleInput, Language } from "@/lib/types";
 
-// Article generation can chain two providers in the worst case; allow 60s on Vercel.
-export const maxDuration = 60;
+// Vercel Hobby plan caps functions at 10s; Pro allows 60s.
+export const maxDuration = 10;
 
 const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const GLM_ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
 
 // Per-provider timeout: a network-blocked or firewalled endpoint fails fast so we
 // can fall through to the next provider instead of hanging the whole request.
-const PROVIDER_TIMEOUT_MS = 20_000;
+const PROVIDER_TIMEOUT_MS = 8_000;
 
 function buildSystemPrompt(lang: Language): string {
   const langInstruction =

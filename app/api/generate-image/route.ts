@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-export const maxDuration = 60;
+export const maxDuration = 10;
 
 const OPENAI_ENDPOINT = "https://api.openai.com/v1/images/generations";
 const GLM_IMAGE_ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/images/generations";
-const PROVIDER_TIMEOUT_MS = 15_000;
+const PROVIDER_TIMEOUT_MS = 8_000;
 
 async function fetchWithTimeout(
   url: string,

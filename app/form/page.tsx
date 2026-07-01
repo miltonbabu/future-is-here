@@ -72,7 +72,10 @@ export default function FormPage() {
       });
       const articleData = await articleRes.json();
       if (!articleRes.ok || !articleData.article) {
-        setErrorMsg(articleData.error || "Something glitched in the time machine.");
+        setErrorMsg(
+          articleData.error ||
+            `The press room had an issue (HTTP ${articleRes.status}). Please try again.`,
+        );
         setView("form");
         return;
       }
