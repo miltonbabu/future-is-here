@@ -1,7 +1,12 @@
 import fs from "fs";
 import path from "path";
 
-const DB_DIR = path.join(process.cwd(), ".data");
+// Vercel serverless has a read-only filesystem except for /tmp.
+// Use /tmp in production (Vercel), .data locally.
+const DB_DIR =
+  process.env.NODE_ENV === "production"
+    ? "/tmp/.data"
+    : path.join(process.cwd(), ".data");
 const DB_FILE = path.join(DB_DIR, "capsules.json");
 
 export interface DbCapsule {
@@ -18,17 +23,21 @@ export interface DbCapsule {
 }
 
 function ensureDir() {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(DB_DIR)) {
+      fs.mkdirSync(DB_DIR, { recursive: true });
+    }
+  } catch {
+    // Read-only filesystem — can't create dir, storage disabled
   }
 }
 
 function readDb(): DbCapsule[] {
   ensureDir();
-  if (!fs.existsSync(DB_FILE)) {
-    return [];
-  }
   try {
+    if (!fs.existsSync(DB_FILE)) {
+      return [];
+    }
     const raw = fs.readFileSync(DB_FILE, "utf-8");
     return JSON.parse(raw) as DbCapsule[];
   } catch {
@@ -36,9 +45,15 @@ function readDb(): DbCapsule[] {
   }
 }
 
-function writeDb(capsules: DbCapsule[]): void {
+function writeDb(capsules: DbCapsule[]): boolean {
   ensureDir();
-  fs.writeFileSync(DB_FILE, JSON.stringify(capsules, null, 2));
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(capsules, null, 2));
+    return true;
+  } catch {
+    // Read-only filesystem (Vercel) — storage disabled, app still works via localStorage
+    return false;
+  }
 }
 
 export async function saveCapsuleToDb(capsule: {
@@ -52,7 +67,7 @@ export async function saveCapsuleToDb(capsule: {
   futureDate: string;
   language: string;
   shareUrl: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const capsules = readDb();
   const index = capsules.findIndex((c) => c.id === capsule.id);
   if (index >= 0) {
@@ -60,7 +75,7 @@ export async function saveCapsuleToDb(capsule: {
   } else {
     capsules.unshift(capsule as DbCapsule);
   }
-  writeDb(capsules);
+  return writeDb(capsules);
 }
 
 export async function getCapsuleFromDb(id: string): Promise<DbCapsule | null> {
@@ -72,7 +87,7 @@ export async function getAllCapsulesFromDb(): Promise<DbCapsule[]> {
   return readDb();
 }
 
-export async function deleteCapsuleFromDb(id: string): Promise<void> {
+export async function deleteCapsuleFromDb(id: string): Promise<boolean> {
   const capsules = readDb().filter((c) => c.id !== id);
-  writeDb(capsules);
+  return writeDb(capsules);
 }
