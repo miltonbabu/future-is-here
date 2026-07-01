@@ -328,30 +328,8 @@ export async function POST(req: Request) {
   const lang: Language = input.language || "en";
   const category = input.category || "default";
 
-  // --- Tier 1: OpenAI (primary) -------------------------------------------
-  const openaiKey = process.env.OPENAI_API_KEY;
-  const openaiModel = process.env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
-  if (openaiKey) {
-    try {
-      const article = await tryChatProvider(
-        OPENAI_ENDPOINT,
-        openaiKey,
-        openaiModel,
-        input,
-        lang,
-      );
-      return NextResponse.json({ article, provider: "openai" });
-    } catch (err) {
-      // Network, firewall, HTTP, or parse error — fall through to GLM.
-      console.warn(
-        `[generate-article] OpenAI failed (${err instanceof Error ? err.message : err}), falling back to GLM`,
-      );
-    }
-  } else {
-    console.warn("[generate-article] OPENAI_API_KEY not set, skipping to GLM");
-  }
-
-  // --- Tier 2: GLM (fallback) ---------------------------------------------
+  // --- Tier 1: GLM (primary) ---------------------------------------------
+  // GLM is more reliable in China; OpenAI often times out due to network.
   const glmKey = process.env.GLM_API_KEY;
   if (glmKey) {
     try {
@@ -365,11 +343,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ article, provider: "glm" });
     } catch (err) {
       console.warn(
-        `[generate-article] GLM failed (${err instanceof Error ? err.message : err}), falling back to pre-built`,
+        `[generate-article] GLM failed (${err instanceof Error ? err.message : err}), falling back to OpenAI`,
       );
     }
   } else {
-    console.warn("[generate-article] GLM_API_KEY not set, using pre-built");
+    console.warn("[generate-article] GLM_API_KEY not set, skipping to OpenAI");
+  }
+
+  // --- Tier 2: OpenAI (fallback) -------------------------------------------
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const openaiModel = process.env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
+  if (openaiKey) {
+    try {
+      const article = await tryChatProvider(
+        OPENAI_ENDPOINT,
+        openaiKey,
+        openaiModel,
+        input,
+        lang,
+      );
+      return NextResponse.json({ article, provider: "openai" });
+    } catch (err) {
+      console.warn(
+        `[generate-article] OpenAI failed (${err instanceof Error ? err.message : err}), falling back to pre-built`,
+      );
+    }
+  } else {
+    console.warn("[generate-article] OPENAI_API_KEY not set, using pre-built");
   }
 
   // --- Tier 3: Pre-built fallback (category-aware) ------------------------

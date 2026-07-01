@@ -40,11 +40,21 @@ export default function FormPage() {
     setImageUrl(null);
     setView("loading");
     try {
-      const articleRes = await fetch("/api/generate-article", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
+      const [articleRes, imageRes] = await Promise.all([
+        fetch("/api/generate-article", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        }),
+        fetch("/api/generate-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: `${input.achievement}, vintage engraving illustration, classic broadsheet editorial style, sepia tones, warm cream and brown ink palette, monochrome, no people, no faces`,
+          }),
+        }),
+      ]);
+
       const articleData = await articleRes.json();
       if (!articleRes.ok || !articleData.article) {
         setErrorMsg(articleData.error || "Something glitched in the time machine.");
@@ -54,12 +64,6 @@ export default function FormPage() {
 
       let resolvedImageUrl: string | null = null;
       try {
-        const illustrationPrompt = `${articleData.article.image_prompt}, vintage engraving illustration, classic broadsheet editorial style, sepia tones, warm cream and brown ink palette, monochrome, no people, no faces`;
-        const imageRes = await fetch("/api/generate-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: illustrationPrompt }),
-        });
         const imageData = await imageRes.json();
         if (imageRes.ok && imageData.src) {
           resolvedImageUrl = imageData.src;
