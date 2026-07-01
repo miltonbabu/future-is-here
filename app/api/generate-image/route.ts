@@ -4,7 +4,7 @@ export const maxDuration = 10;
 
 const OPENAI_ENDPOINT = "https://api.openai.com/v1/images/generations";
 const GLM_IMAGE_ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/images/generations";
-const PROVIDER_TIMEOUT_MS = 8_000;
+const PROVIDER_TIMEOUT_MS = 5_000;
 
 async function fetchWithTimeout(
   url: string,
@@ -85,47 +85,49 @@ ${scene}
 }
 
 async function tryGLM(prompt: string, apiKey: string): Promise<string | null> {
-  try {
-    const res = await fetchWithTimeout(
-      GLM_IMAGE_ENDPOINT,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey.trim()}`,
+  const models = ["cogview-3-plus", "cogview-3"];
+  for (const model of models) {
+    try {
+      const res = await fetchWithTimeout(
+        GLM_IMAGE_ENDPOINT,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey.trim()}`,
+          },
+          body: JSON.stringify({
+            model,
+            prompt,
+            n: 1,
+            size: "1024x1024",
+          }),
         },
-        body: JSON.stringify({
-          model: "cogview-3-plus",
-          prompt,
-          n: 1,
-          size: "1024x1024",
-        }),
-      },
-      PROVIDER_TIMEOUT_MS,
-    );
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error(
-        `[generate-image] GLM responded ${res.status}: ${text.slice(0, 200)}`,
+        PROVIDER_TIMEOUT_MS,
       );
-      return null;
-    }
 
-    const data = await res.json();
-    const imgUrl: string | undefined = data?.data?.[0]?.url;
-    if (!imgUrl) {
-      console.error("[generate-image] GLM returned no image URL");
-      return null;
-    }
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.error(
+          `[generate-image] GLM ${model} responded ${res.status}: ${text.slice(0, 300)}`,
+        );
+        continue;
+      }
 
-    // Return the URL directly — fetching + base64 conversion adds a second
-    // network round-trip that exceeds Vercel's 10s function limit.
-    return imgUrl;
-  } catch (err) {
-    console.error("[generate-image] GLM request failed:", err);
-    return null;
+      const data = await res.json();
+      const imgUrl: string | undefined = data?.data?.[0]?.url;
+      if (!imgUrl) {
+        console.error(`[generate-image] GLM ${model} returned no image URL`, JSON.stringify(data).slice(0, 200));
+        continue;
+      }
+
+      console.log(`[generate-image] GLM ${model} succeeded`);
+      return imgUrl;
+    } catch (err) {
+      console.error(`[generate-image] GLM ${model} request failed:`, err instanceof Error ? err.message : err);
+    }
   }
+  return null;
 }
 
 async function tryOpenAI(prompt: string, apiKey: string): Promise<string | null> {
