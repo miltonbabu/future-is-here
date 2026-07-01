@@ -40,14 +40,49 @@ export function saveCapsule(capsule: Omit<SavedCapsule, "id" | "createdAt">): Sa
   const all = getAllCapsules();
   all.unshift(entry);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+
+  fetch("/api/capsules", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...entry,
+      article: JSON.stringify(entry.article),
+    }),
+  }).catch(() => {});
+
   return entry;
 }
 
 export function deleteCapsule(id: string): void {
   const all = getAllCapsules().filter((c) => c.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+
+  fetch("/api/capsules", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  }).catch(() => {});
 }
 
 export function clearAllCapsules(): void {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+export async function loadCapsulesFromDb(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const res = await fetch("/api/capsules");
+    const dbCapsules = await res.json();
+    if (Array.isArray(dbCapsules)) {
+      const parsed: SavedCapsule[] = dbCapsules.map((c) => ({
+        ...c,
+        article: typeof c.article === "string" ? JSON.parse(c.article) : c.article,
+        imageUrl: c.imageUrl || null,
+        photoUrl: c.photoUrl || null,
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    }
+  } catch {
+    // Failed to load from DB, keep localStorage as-is
+  }
 }

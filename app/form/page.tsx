@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CapsuleForm from "@/components/CapsuleForm";
 import Newspaper from "@/components/Newspaper";
 import type { ArticleData, CapsuleInput, Language } from "@/lib/types";
-import { saveCapsule } from "@/lib/storage";
+import { saveCapsule, getAllCapsules, loadCapsulesFromDb } from "@/lib/storage";
 
 interface SharedNewspaper {
   article: ArticleData;
@@ -32,6 +32,31 @@ export default function FormPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [language, setLanguage] = useState<Language>("en");
   const [shareUrl, setShareUrl] = useState("");
+
+  useEffect(() => {
+    const restoreFromStorage = async () => {
+      await loadCapsulesFromDb();
+      const capsules = getAllCapsules();
+      if (capsules.length > 0) {
+        const latest = capsules[0];
+        setArticle(latest.article);
+        setImageUrl(latest.imageUrl);
+        setPhotoUrl(latest.photoUrl);
+        setLastInput({
+          name: latest.name,
+          team: latest.team,
+          achievement: latest.article.headline,
+          futureDate: latest.futureDate,
+          language: latest.language,
+          category: "default",
+        });
+        setLanguage(latest.language);
+        setShareUrl(latest.shareUrl);
+        setView("result");
+      }
+    };
+    restoreFromStorage();
+  }, []);
 
   const handleGenerate = async (input: CapsuleInput, photo: string) => {
     setLastInput(input);
