@@ -192,15 +192,8 @@ export async function POST(req: Request) {
   const openaiKey = process.env.OPENAI_API_KEY;
   const glmKey = process.env.GLM_API_KEY;
 
-  if (!glmKey && !openaiKey) {
-    return NextResponse.json({
-      src: generateFallbackIllustration(prompt),
-      provider: "fallback",
-    });
-  }
-
   let result: string | null = null;
-  let provider = "fallback";
+  let provider = "none";
 
   if (glmKey) {
     result = await tryGLM(prompt, glmKey);
@@ -216,8 +209,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ src: result, provider });
   }
 
-  return NextResponse.json({
-    src: generateFallbackIllustration(prompt),
-    provider: "fallback",
-  });
+  // No fallback image — newspaper shows without illustration
+  return NextResponse.json({ src: null, provider: "none" });
 }
