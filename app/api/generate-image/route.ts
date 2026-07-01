@@ -1,9 +1,24 @@
 import { NextResponse } from "next/server";
 
-// DALL-E 2 generation takes ~2-5s. Keep within Hobby plan 10s limit.
-export const maxDuration = 10;
+export const maxDuration = 60;
 
 const OPENAI_ENDPOINT = "https://api.openai.com/v1/images/generations";
+const GLM_IMAGE_ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/images/generations";
+const PROVIDER_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  ms: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function generateFallbackIllustration(prompt: string): string {
   const randomSeed = prompt.length % 100;
@@ -53,7 +68,7 @@ function generateFallbackIllustration(prompt: string): string {
      <rect x="0" y="0" width="512" height="200" fill="${bg.sky}"/>
      <circle cx="100" cy="70" r="30" fill="#f5d76e"/>
      <path d="M0 400 Q128 350 256 400 T512 400 L512 512 L0 512 Z" fill="#4a6718"/>
-     <rect x="150" y="280" width="200" height="120" fill="#f4ead5" stroke="#5c4510" stroke-width="2"/>
+     <rect x="150" y="280" width="200" height="120" fill="${bg.sky}"/>
      <rect x="170" y="300" width="80" height="80" fill="#d4c4a8"/>
      <rect x="260" y="300" width="80" height="80" fill="#d4c4a8"/>
      <line x1="250" y1="300" x2="250" y2="380" stroke="#5c4510" stroke-width="2"/>`,
@@ -67,6 +82,106 @@ ${scene}
 </svg>`;
 
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
+async function tryGLM(prompt: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetchWithTimeout(
+      GLM_IMAGE_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey.trim()}`,
+        },
+        body: JSON.stringify({
+          model: "cogview-3-plus",
+          prompt,
+          n: 1,
+          size: "1024x1024",
+        }),
+      },
+      PROVIDER_TIMEOUT_MS,
+    );
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(
+        `[generate-image] GLM responded ${res.status}: ${text.slice(0, 200)}`,
+      );
+      return null;
+    }
+
+    const data = await res.json();
+    const imgUrl: string | undefined = data?.data?.[0]?.url;
+    if (!imgUrl) {
+      console.error("[generate-image] GLM returned no image URL");
+      return null;
+    }
+
+    const imgRes = await fetch(imgUrl);
+    if (!imgRes.ok) {
+      console.error(`[generate-image] Failed to fetch GLM image: ${imgRes.status}`);
+      return null;
+    }
+
+    const arrayBuffer = await imgRes.arrayBuffer();
+    const b64 = Buffer.from(arrayBuffer).toString("base64");
+    return `data:image/png;base64,${b64}`;
+  } catch (err) {
+    console.error("[generate-image] GLM request failed:", err);
+    return null;
+  }
+}
+
+async function tryOpenAI(prompt: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetchWithTimeout(
+      OPENAI_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey.trim()}`,
+        },
+        body: JSON.stringify({
+          model: "dall-e-2",
+          prompt,
+          n: 1,
+          size: "1024x1024",
+        }),
+      },
+      PROVIDER_TIMEOUT_MS,
+    );
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(
+        `[generate-image] OpenAI responded ${res.status}: ${text.slice(0, 200)}`,
+      );
+      return null;
+    }
+
+    const data = await res.json();
+    const imgUrl: string | undefined = data?.data?.[0]?.url;
+    if (!imgUrl) {
+      console.error("[generate-image] OpenAI returned no image URL");
+      return null;
+    }
+
+    const imgRes = await fetch(imgUrl);
+    if (!imgRes.ok) {
+      console.error(`[generate-image] Failed to fetch image: ${imgRes.status}`);
+      return null;
+    }
+
+    const arrayBuffer = await imgRes.arrayBuffer();
+    const b64 = Buffer.from(arrayBuffer).toString("base64");
+    return `data:image/png;base64,${b64}`;
+  } catch (err) {
+    console.error("[generate-image] OpenAI request failed:", err);
+    return null;
+  }
 }
 
 export async function POST(req: Request) {
@@ -85,71 +200,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const glmKey = process.env.GLM_API_KEY;
+
+  if (!glmKey && !openaiKey) {
     return NextResponse.json({
       src: generateFallbackIllustration(prompt),
       provider: "fallback",
     });
   }
 
-  try {
-    const res = await fetch(OPENAI_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey.trim()}`,
-      },
-      body: JSON.stringify({
-        model: "dall-e-2",
-        prompt,
-        n: 1,
-        size: "1024x1024",
-      }),
-    });
+  let result: string | null = null;
+  let provider = "fallback";
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error(
-        `[generate-image] OpenAI responded ${res.status}: ${text.slice(0, 300)}`,
-      );
-      return NextResponse.json({
-        src: generateFallbackIllustration(prompt),
-        provider: "fallback",
-      });
-    }
-
-    const data = await res.json();
-    const imgUrl: string | undefined = data?.data?.[0]?.url;
-    if (!imgUrl) {
-      console.error("[generate-image] OpenAI returned no image URL");
-      return NextResponse.json({
-        src: generateFallbackIllustration(prompt),
-        provider: "fallback",
-      });
-    }
-
-    const imgRes = await fetch(imgUrl);
-    if (!imgRes.ok) {
-      console.error(`[generate-image] Failed to fetch image: ${imgRes.status}`);
-      return NextResponse.json({
-        src: generateFallbackIllustration(prompt),
-        provider: "fallback",
-      });
-    }
-
-    const arrayBuffer = await imgRes.arrayBuffer();
-    const b64 = Buffer.from(arrayBuffer).toString("base64");
-
-    return NextResponse.json({
-      src: `data:image/png;base64,${b64}`,
-      provider: "openai",
-    });
-  } catch (err) {
-    console.error("[generate-image] Request failed, using fallback:", err);
-    return NextResponse.json({
-      src: generateFallbackIllustration(prompt),
-      provider: "fallback",
-    });
+  if (glmKey) {
+    result = await tryGLM(prompt, glmKey);
+    if (result) provider = "glm";
   }
+
+  if (!result && openaiKey) {
+    result = await tryOpenAI(prompt, openaiKey);
+    if (result) provider = "openai";
+  }
+
+  if (result) {
+    return NextResponse.json({ src: result, provider });
+  }
+
+  return NextResponse.json({
+    src: generateFallbackIllustration(prompt),
+    provider: "fallback",
+  });
 }
