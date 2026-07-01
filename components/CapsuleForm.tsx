@@ -227,7 +227,10 @@ export default function CapsuleForm({
   // hydration mismatch.
   useEffect(() => {
     setChips(rollChips(getPool("all", language)));
-    // Re-roll when the user toggles language so chips always match the UI.
+    const pool = getPool(activeCategory, language);
+    if (pool.length) {
+      setAchievement(pool[Math.floor(Math.random() * pool.length)]);
+    }
   }, [language]);
 
   const surpriseMe = () => {
@@ -262,14 +265,15 @@ export default function CapsuleForm({
     );
   };
 
-  const headlineFont =
-    language === "zh" ? "font-headline-zh" : "font-headline";
+  const headlineFont = language === "zh" ? "font-headline-zh" : "font-headline";
   const bodyFont = language === "zh" ? "font-body-zh" : "font-body";
   const catLabel = (c: { label: string; labelZh: string }) =>
     language === "zh" ? c.labelZh : c.label;
 
   return (
-    <main className={`min-h-screen flex items-center justify-center p-4 sm:p-6 ${bodyFont} paper-grain`}>
+    <main
+      className={`min-h-screen flex items-center justify-center p-4 sm:p-6 ${bodyFont} paper-grain`}
+    >
       <div className="w-full max-w-xl bg-paper border-2 border-ink p-6 sm:p-10">
         <div className="flex justify-between items-center mb-6">
           <button
@@ -288,7 +292,9 @@ export default function CapsuleForm({
           <p className="h-label text-[10px] sm:text-xs text-accent mb-2">
             {t(language, "volInfo")} · {t(language, "price")}
           </p>
-          <h1 className={`h-headline ${headlineFont} text-4xl sm:text-5xl text-ink tracking-tight leading-[1.05]`}>
+          <h1
+            className={`h-headline ${headlineFont} text-4xl sm:text-5xl text-ink tracking-tight leading-[1.05]`}
+          >
             {t(language, "title")}
           </h1>
           <p className={`h-body ${bodyFont} text-sm text-ink/70 mt-3 italic`}>
@@ -338,7 +344,9 @@ export default function CapsuleForm({
               />
             </div>
             <div className="flex items-end">
-              <p className={`h-body ${bodyFont} text-xs text-ink/60 pb-3 italic`}>
+              <p
+                className={`h-body ${bodyFont} text-xs text-ink/60 pb-3 italic`}
+              >
                 {t(language, "dateHint")}
               </p>
             </div>
@@ -496,7 +504,10 @@ export default function CapsuleForm({
                     src={photoUrl}
                     alt="Your preview"
                     className="block max-w-52 max-h-72 w-auto h-auto object-contain"
-                    style={{ filter: "sepia(50%) saturate(140%) contrast(100%) brightness(108%) hue-rotate(-8deg)" }}
+                    style={{
+                      filter:
+                        "sepia(50%) saturate(140%) contrast(100%) brightness(108%) hue-rotate(-8deg)",
+                    }}
                   />
                 </div>
               </div>
