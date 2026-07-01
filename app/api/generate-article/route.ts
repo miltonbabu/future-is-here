@@ -7,9 +7,9 @@ export const maxDuration = 10;
 const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const GLM_ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
 
-// Per-provider timeout: a network-blocked or firewalled endpoint fails fast so we
-// can fall through to the next provider instead of hanging the whole request.
-const PROVIDER_TIMEOUT_MS = 8_000;
+// Per-provider timeout: must be short enough that GLM fail + fallback fits
+// within Vercel Hobby's 10s function limit. GLM is usually 2-5s when working.
+const PROVIDER_TIMEOUT_MS = 5_000;
 
 function buildSystemPrompt(lang: Language): string {
   const langInstruction =
@@ -290,10 +290,11 @@ function fallbackArticle(
   name: string,
   team: string,
   year: string,
-  lang: Language,
+  lang: string,
   category: string,
 ): ArticleData {
-  const tpl = (TEMPLATES[category] || TEMPLATES.default)[lang];
+  const safeLang: Language = lang === "zh" ? "zh" : "en";
+  const tpl = (TEMPLATES[category] || TEMPLATES.default)[safeLang];
   return {
     headline: tpl.headline(team, year),
     paragraph1: tpl.p1(name, team, year),
@@ -306,75 +307,63 @@ function fallbackArticle(
 }
 
 export async function POST(req: Request) {
-  let input: CapsuleInput;
   try {
-    input = await req.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
-  }
-
-  const { name, team, achievement } = input;
-  if (!name || !team || !achievement) {
-    return NextResponse.json(
-      { error: "name, team and achievement are required" },
-      { status: 400 },
-    );
-  }
-
-  const year = input.futureDate?.split("-")[0] || "2032";
-  const lang: Language = input.language || "en";
-  const category = input.category || "default";
-
-  // --- Tier 1: GLM (primary) ---------------------------------------------
-  // GLM is more reliable in China; OpenAI often times out due to network.
-  const glmKey = process.env.GLM_API_KEY;
-  if (glmKey) {
+    let input: CapsuleInput;
     try {
-      const article = await tryChatProvider(
-        GLM_ENDPOINT,
-        glmKey,
-        "glm-4-flash",
-        input,
-        lang,
-      );
-      return NextResponse.json({ article, provider: "glm" });
-    } catch (err) {
-      console.warn(
-        `[generate-article] GLM failed (${err instanceof Error ? err.message : err}), falling back to OpenAI`,
+      input = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
       );
     }
-  } else {
-    console.warn("[generate-article] GLM_API_KEY not set, skipping to OpenAI");
-  }
 
-  // --- Tier 2: OpenAI (fallback) -------------------------------------------
-  const openaiKey = process.env.OPENAI_API_KEY;
-  const openaiModel = process.env.OPENAI_TEXT_MODEL || "gpt-4o-mini";
-  if (openaiKey) {
-    try {
-      const article = await tryChatProvider(
-        OPENAI_ENDPOINT,
-        openaiKey,
-        openaiModel,
-        input,
-        lang,
-      );
-      return NextResponse.json({ article, provider: "openai" });
-    } catch (err) {
-      console.warn(
-        `[generate-article] OpenAI failed (${err instanceof Error ? err.message : err}), falling back to pre-built`,
+    const { name, team, achievement } = input;
+    if (!name || !team || !achievement) {
+      return NextResponse.json(
+        { error: "name, team and achievement are required" },
+        { status: 400 },
       );
     }
-  } else {
-    console.warn("[generate-article] OPENAI_API_KEY not set, using pre-built");
-  }
 
-  // --- Tier 3: Pre-built fallback (category-aware) ------------------------
-  return NextResponse.json({
-    article: fallbackArticle(name, team, year, lang, category),
-    provider: "fallback",
-  });
+    const year = input.futureDate?.split("-")[0] || "2032";
+    const lang: Language = input.language || "en";
+    const category = input.category || "default";
+
+    // --- Tier 1: GLM (primary, 5s timeout) --------------------------------
+    const glmKey = process.env.GLM_API_KEY;
+    if (glmKey) {
+      try {
+        const article = await tryChatProvider(
+          GLM_ENDPOINT,
+          glmKey,
+          "glm-4-flash",
+          input,
+          lang,
+        );
+        return NextResponse.json({ article, provider: "glm" });
+      } catch (err) {
+        console.warn(
+          `[generate-article] GLM failed (${err instanceof Error ? err.message : err}), using pre-built fallback`,
+        );
+      }
+    } else {
+      console.warn(
+        "[generate-article] GLM_API_KEY not set, using pre-built fallback",
+      );
+    }
+
+    // --- Tier 2: Pre-built fallback (no OpenAI — saves 5s timeout) --------
+    return NextResponse.json({
+      article: fallbackArticle(name, team, year, lang, category),
+      provider: "fallback",
+    });
+  } catch (err) {
+    // Safety net — if anything unexpected throws, always return a response
+    console.error("[generate-article] Unexpected error:", err);
+    return NextResponse.json({
+      article: fallbackArticle("Friend", "Future", "2032", "en", "default"),
+      provider: "fallback",
+    });
+  }
 }
