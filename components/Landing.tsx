@@ -20,7 +20,7 @@ export default function Landing({
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setShareUrl(`${window.location.origin}/#form`);
+      setShareUrl(`${window.location.origin}/form`);
     }
   }, []);
 

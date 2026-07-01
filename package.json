@@ -9,21 +9,22 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "html-to-image": "^1.11.13",
     "next": "16.2.9",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "qrcode.react": "^4.2.0"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.4",
+    "@eslint/eslintrc": "^3.2.0",
     "@types/node": "^20.14.12",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "autoprefixer": "^10.4.19",
-    "postcss": "^8.4.40",
-    "tailwindcss": "^3.4.7",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.2.9",
-    "@eslint/eslintrc": "^3.2.0"
+    "postcss": "^8.4.40",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.4"
   }
 }

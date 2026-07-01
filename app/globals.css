@@ -123,7 +123,7 @@ body {
 .polaroid-frame {
   display: inline-block;
   padding: 10px 10px 36px;
-  background: #fafaf5;
+  background: #f4ead5;
   border: 1px solid rgba(0, 0, 0, 0.15);
   transform: rotate(-2deg);
   box-shadow:

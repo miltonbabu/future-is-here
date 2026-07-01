@@ -288,7 +288,7 @@ export default function CapsuleForm({
           <p className="h-label text-[10px] sm:text-xs text-accent mb-2">
             {t(language, "volInfo")} · {t(language, "price")}
           </p>
-          <h1 className={`h-headline ${headlineFont} text-4xl sm:text-5xl text-ink`}>
+          <h1 className={`h-headline ${headlineFont} text-4xl sm:text-5xl text-ink tracking-tight leading-[1.05]`}>
             {t(language, "title")}
           </h1>
           <p className={`h-body ${bodyFont} text-sm text-ink/70 mt-3 italic`}>
