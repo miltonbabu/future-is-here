@@ -1,42 +1,8 @@
-import initSqlJs from "sql.js";
+import fs from "fs";
+import path from "path";
 
-interface DatabaseInstance {
-  run(sql: string, params?: unknown[]): void;
-  get(sql: string, params?: unknown[]): Record<string, unknown> | undefined;
-  all(sql: string, params?: unknown[]): Record<string, unknown>[];
-}
-
-interface SQLModule {
-  Database: new () => DatabaseInstance;
-}
-
-let sqlModule: SQLModule | null = null;
-let db: DatabaseInstance | null = null;
-
-async function getDb(): Promise<DatabaseInstance> {
-  if (db) return db;
-  if (!sqlModule) {
-    sqlModule = await initSqlJs({
-      locateFile: (file: string) => `https://sql.js.org/dist/${file}`,
-    });
-  }
-  db = new sqlModule.Database();
-  db.run(`
-    CREATE TABLE IF NOT EXISTS capsules (
-      id TEXT PRIMARY KEY,
-      created_at TEXT NOT NULL,
-      article TEXT NOT NULL,
-      image_url TEXT,
-      photo_url TEXT,
-      name TEXT NOT NULL,
-      team TEXT NOT NULL,
-      future_date TEXT NOT NULL,
-      language TEXT NOT NULL,
-      share_url TEXT NOT NULL
-    )
-  `);
-  return db;
-}
+const DB_DIR = path.join(process.cwd(), ".data");
+const DB_FILE = path.join(DB_DIR, "capsules.json");
 
 export interface DbCapsule {
   id: string;
@@ -51,6 +17,30 @@ export interface DbCapsule {
   shareUrl: string;
 }
 
+function ensureDir() {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+}
+
+function readDb(): DbCapsule[] {
+  ensureDir();
+  if (!fs.existsSync(DB_FILE)) {
+    return [];
+  }
+  try {
+    const raw = fs.readFileSync(DB_FILE, "utf-8");
+    return JSON.parse(raw) as DbCapsule[];
+  } catch {
+    return [];
+  }
+}
+
+function writeDb(capsules: DbCapsule[]): void {
+  ensureDir();
+  fs.writeFileSync(DB_FILE, JSON.stringify(capsules, null, 2));
+}
+
 export async function saveCapsuleToDb(capsule: {
   id: string;
   createdAt: string;
@@ -63,64 +53,26 @@ export async function saveCapsuleToDb(capsule: {
   language: string;
   shareUrl: string;
 }): Promise<void> {
-  const database = await getDb();
-  database.run(
-    `INSERT OR REPLACE INTO capsules (
-      id, created_at, article, image_url, photo_url,
-      name, team, future_date, language, share_url
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      capsule.id,
-      capsule.createdAt,
-      capsule.article,
-      capsule.imageUrl || null,
-      capsule.photoUrl || null,
-      capsule.name,
-      capsule.team,
-      capsule.futureDate,
-      capsule.language,
-      capsule.shareUrl,
-    ],
-  );
+  const capsules = readDb();
+  const index = capsules.findIndex((c) => c.id === capsule.id);
+  if (index >= 0) {
+    capsules[index] = capsule as DbCapsule;
+  } else {
+    capsules.unshift(capsule as DbCapsule);
+  }
+  writeDb(capsules);
 }
 
 export async function getCapsuleFromDb(id: string): Promise<DbCapsule | null> {
-  const database = await getDb();
-  const result = database.get("SELECT * FROM capsules WHERE id = ?", [id]);
-  if (!result) return null;
-  return {
-    id: result.id as string,
-    createdAt: result.created_at as string,
-    article: result.article as string,
-    imageUrl: result.image_url as string | null,
-    photoUrl: result.photo_url as string | null,
-    name: result.name as string,
-    team: result.team as string,
-    futureDate: result.future_date as string,
-    language: result.language as string,
-    shareUrl: result.share_url as string,
-  };
+  const capsules = readDb();
+  return capsules.find((c) => c.id === id) || null;
 }
 
 export async function getAllCapsulesFromDb(): Promise<DbCapsule[]> {
-  const database = await getDb();
-  const results = database.all(
-    "SELECT * FROM capsules ORDER BY created_at DESC",
-  );
-  return results.map((row) => ({
-    id: row.id as string,
-    createdAt: row.created_at as string,
-    article: row.article as string,
-    imageUrl: row.image_url as string | null,
-    photoUrl: row.photo_url as string | null,
-    name: row.name as string,
-    team: row.team as string,
-    futureDate: row.future_date as string,
-    language: row.language as string,
-    shareUrl: row.share_url as string,
-  }));
+  return readDb();
 }
+
 export async function deleteCapsuleFromDb(id: string): Promise<void> {
-  const database = await getDb();
-  database.run("DELETE FROM capsules WHERE id = ?", [id]);
+  const capsules = readDb().filter((c) => c.id !== id);
+  writeDb(capsules);
 }
