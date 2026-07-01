@@ -99,6 +99,7 @@ async function tryGLM(prompt: string, apiKey: string): Promise<string | null> {
           prompt,
           n: 1,
           size: "1024x1024",
+          quality: "hd",
         }),
       },
       PROVIDER_TIMEOUT_MS,

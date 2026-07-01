@@ -80,7 +80,7 @@ export default function FormPage() {
       let resolvedImageUrl: string | null = null;
       try {
         const year = input.futureDate?.split("-")[0] || "2032";
-        const illustrationPrompt = `Futuristic ${year} scene, ${articleData.article.image_prompt}, vintage engraving illustration style, classic broadsheet newspaper art, sepia monochrome, warm cream paper background, intricate line art, no people, no faces, detailed texture, timeless vintage aesthetic, sci-fi elements appropriate for ${year}`;
+        const illustrationPrompt = `Photorealistic futuristic ${year} scene, ${articleData.article.image_prompt}, professional photography, high resolution, 8k, sharp focus, cinematic lighting, detailed textures, natural colors, vintage newspaper style photograph, warm sepia tones, aged paper texture overlay, documentary photography, no people, no faces, sci-fi elements, ultra realistic, photojournalism style`;
         const imageRes = await fetch("/api/generate-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
