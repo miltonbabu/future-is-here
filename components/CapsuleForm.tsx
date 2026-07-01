@@ -205,16 +205,34 @@ export default function CapsuleForm({
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Convert to data URL (base64) instead of blob URL — data URLs are plain
-    // strings that survive view transitions, re-renders, and don't need
-    // revocation. Blob URLs can be unreliable in production.
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+    // Compress + resize the image via canvas before storing as base64.
+    // Full-resolution photos (2-10MB) exceed localStorage's 5MB limit,
+    // causing silent save failures and losing the photo on refresh.
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const maxW = 400;
+      const maxH = 500;
+      let { width, height } = img;
+      if (width > maxW) {
+        height = (height * maxW) / width;
+        width = maxW;
+      }
+      if (height > maxH) {
+        width = (width * maxH) / height;
+        height = maxH;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, width, height);
+      // JPEG quality 0.7 keeps it under ~100KB — well within localStorage limits
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
       setPhotoUrl(dataUrl);
       onPhotoChange(dataUrl);
     };
-    reader.readAsDataURL(file);
+    img.src = URL.createObjectURL(file);
     e.target.value = "";
   };
 

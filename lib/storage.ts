@@ -39,7 +39,25 @@ export function saveCapsule(capsule: Omit<SavedCapsule, "id" | "createdAt">): Sa
   };
   const all = getAllCapsules();
   all.unshift(entry);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+  // Keep only the latest 5 capsules to stay within localStorage's 5MB limit
+  const trimmed = all.slice(0, 5);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+  } catch {
+    // localStorage quota exceeded — try saving without the photo
+    const stripped = trimmed.map((c, i) =>
+      i === 0 ? { ...c, photoUrl: null, imageUrl: null } : c,
+    );
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+    } catch {
+      // Still failed — clear old data and save just the current entry
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify([{ ...entry, photoUrl: null, imageUrl: null }]),
+      );
+    }
+  }
 
   fetch("/api/capsules", {
     method: "POST",

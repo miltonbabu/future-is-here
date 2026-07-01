@@ -99,7 +99,6 @@ async function tryGLM(prompt: string, apiKey: string): Promise<string | null> {
           prompt,
           n: 1,
           size: "1024x1024",
-          quality: "hd",
         }),
       },
       PROVIDER_TIMEOUT_MS,
@@ -120,15 +119,9 @@ async function tryGLM(prompt: string, apiKey: string): Promise<string | null> {
       return null;
     }
 
-    const imgRes = await fetch(imgUrl);
-    if (!imgRes.ok) {
-      console.error(`[generate-image] Failed to fetch GLM image: ${imgRes.status}`);
-      return null;
-    }
-
-    const arrayBuffer = await imgRes.arrayBuffer();
-    const b64 = Buffer.from(arrayBuffer).toString("base64");
-    return `data:image/png;base64,${b64}`;
+    // Return the URL directly — fetching + base64 conversion adds a second
+    // network round-trip that exceeds Vercel's 10s function limit.
+    return imgUrl;
   } catch (err) {
     console.error("[generate-image] GLM request failed:", err);
     return null;
@@ -170,15 +163,8 @@ async function tryOpenAI(prompt: string, apiKey: string): Promise<string | null>
       return null;
     }
 
-    const imgRes = await fetch(imgUrl);
-    if (!imgRes.ok) {
-      console.error(`[generate-image] Failed to fetch image: ${imgRes.status}`);
-      return null;
-    }
-
-    const arrayBuffer = await imgRes.arrayBuffer();
-    const b64 = Buffer.from(arrayBuffer).toString("base64");
-    return `data:image/png;base64,${b64}`;
+    // Return URL directly to save time within Vercel's 10s limit.
+    return imgUrl;
   } catch (err) {
     console.error("[generate-image] OpenAI request failed:", err);
     return null;
