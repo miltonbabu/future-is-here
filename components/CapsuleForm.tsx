@@ -251,8 +251,25 @@ export default function CapsuleForm({
     }
   }, [language]);
 
-  const surpriseMe = () => {
+  const surpriseMe = async () => {
     const pool = getPool(activeCategory, language);
+    
+    try {
+      const res = await fetch("/api/generate-achievement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: activeCategory, language }),
+      });
+      const data = await res.json();
+      
+      if (data.achievements && data.achievements.length > 0) {
+        setAchievement(data.achievements[0]);
+        setChips(data.achievements);
+        return;
+      }
+    } catch {
+    }
+    
     if (pool.length) {
       setAchievement(pool[Math.floor(Math.random() * pool.length)]);
     }
