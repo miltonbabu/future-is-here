@@ -161,7 +161,10 @@ export default function FormPage() {
 
       let resolvedImageUrl: string | null = null;
       try {
-        const illustrationPrompt = `${articleData.article.image_prompt}, photorealistic, vintage newspaper photo, sepia tones, warm lighting, no people no faces`;
+        // Use the AI-generated image_prompt as primary context, with the
+        // achievement text as fallback context to ensure relevance.
+        const achContext = input.achievement.slice(0, 80);
+        const illustrationPrompt = `${articleData.article.image_prompt || `a futuristic scene representing: ${achContext}`}, photorealistic, vintage newspaper photo, sepia tones, warm lighting, no people no faces`;
         resolvedImageUrl = await generateImageClientSide(illustrationPrompt);
       } catch {}
 
