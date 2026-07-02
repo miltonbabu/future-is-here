@@ -351,9 +351,7 @@ export default function Newspaper({
             <div className="border-2 border-ink p-1 bg-[#f4ead5]">
               <QRCodeSVG
                 value={
-                  shareUrl.length > 1500
-                    ? `${typeof window !== "undefined" ? window.location.origin : ""}/#form`
-                    : shareUrl || "https://future-time-capsule.vercel.app"
+                  shareUrl || `${typeof window !== "undefined" ? window.location.origin : ""}`
                 }
                 size={96}
                 bgColor="#f4ead5"

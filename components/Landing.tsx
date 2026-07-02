@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { Language } from "@/lib/types";
 import { t } from "@/lib/i18n";
@@ -16,14 +15,6 @@ export default function Landing({
   onLanguageChange,
   onEnter,
 }: LandingProps) {
-  const [shareUrl, setShareUrl] = useState("");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setShareUrl(`${window.location.origin}/form`);
-    }
-  }, []);
-
   const headlineFont =
     language === "zh" ? "font-headline-zh" : "font-landing-headline";
   const bodyFont = language === "zh" ? "font-body-zh" : "font-landing-body";
@@ -91,7 +82,7 @@ export default function Landing({
             <div className="text-center">
               <div className="border-2 border-ink p-2 bg-white">
                 <QRCodeSVG
-                  value={shareUrl || "https://future-time-capsule.vercel.app"}
+                  value={`${typeof window !== "undefined" ? window.location.origin : ""}/form`}
                   size={150}
                   bgColor="#ffffff"
                   fgColor="#1a1a1a"
