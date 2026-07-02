@@ -32,8 +32,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# trae / IDE workspace files
-.trae/
+# trae / IDE workspace files (but keep documents folder for project docs)
+.trae/*
+!.trae/documents/
+!.trae/documents/**
 
 # local database files
 .data/

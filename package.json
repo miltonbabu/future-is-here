@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0",
     "lint": "next lint"
   },
   "dependencies": {
+    "@upstash/redis": "^1.38.0",
     "html-to-image": "^1.11.13",
     "next": "16.2.9",
     "qrcode.react": "^4.2.0",

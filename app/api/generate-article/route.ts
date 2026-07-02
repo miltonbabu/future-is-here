@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import type { ArticleData, CapsuleInput, Language } from "@/lib/types";
 
 // Vercel Hobby plan caps functions at 10s; Pro allows 60s.
+// When self-hosting locally there is no such limit, so we allow more time.
 export const maxDuration = 10;
 
 const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const GLM_ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
 
-// Per-provider timeout: must be short enough that GLM fail + fallback fits
-// within Vercel Hobby's 10s function limit. GLM is usually 2-5s when working.
-const PROVIDER_TIMEOUT_MS = 5_000;
+// Vercel sets VERCEL=1 automatically. On Vercel Hobby we must stay under 10s,
+// so GLM gets 5s before falling back. Self-hosted (local PC, same-WiFi phone
+// access) we can afford to wait much longer for a real AI article.
+const PROVIDER_TIMEOUT_MS = process.env.VERCEL ? 5_000 : 30_000;
 
 function buildSystemPrompt(lang: Language): string {
   const langInstruction =

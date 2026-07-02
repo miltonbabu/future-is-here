@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { Language } from "@/lib/types";
 import { t } from "@/lib/i18n";
@@ -19,6 +20,14 @@ export default function Landing({
     language === "zh" ? "font-headline-zh" : "font-landing-headline";
   const bodyFont = language === "zh" ? "font-body-zh" : "font-landing-body";
   const labelFont = bodyFont; // labels share body font
+
+  // Compute the QR target URL on the client only. Using `window.location.origin`
+  // inline during render would produce a different value on the server (empty)
+  // vs the client (full URL), causing a QRCodeSVG hydration mismatch.
+  const [qrValue, setQrValue] = useState("/form");
+  useEffect(() => {
+    setQrValue(`${window.location.origin}/form`);
+  }, []);
 
   return (
     <main
@@ -82,7 +91,7 @@ export default function Landing({
             <div className="text-center">
               <div className="border-2 border-ink p-2 bg-white">
                 <QRCodeSVG
-                  value={`${typeof window !== "undefined" ? window.location.origin : ""}/form`}
+                  value={qrValue}
                   size={150}
                   bgColor="#ffffff"
                   fgColor="#1a1a1a"
