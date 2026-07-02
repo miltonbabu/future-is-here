@@ -8,11 +8,14 @@
 
 **Future Time Capsule** — a web app where users type their name, team, and a future achievement, and AI generates a full vintage newspaper front page from that future year, complete with:
 - AI-written newspaper article (headline + 3 paragraphs + quote + reward)
-- AI-generated photorealistic illustration (no faces, futuristic scene)
-- User's uploaded photo in a polaroid frame with sepia filter
-- QR code for sharing
-- Bilingual support (English + Chinese)
+- AI-generated photorealistic illustration (no faces, futuristic scene) — generated **client-side** to bypass Vercel's 10s function limit
+- User's uploaded photo in a polaroid frame with sepia filter (compressed to ~50KB base64)
+- AI-generated funny achievement suggestions ("Surprise me" button) — category-aware, language-aware
+- QR code for sharing — homepage QR points to form, newspaper QR points to shareable URL with all images
+- Server-side share tokens (`/share/abc123xyz`) — short URLs that include all images + text
+- Bilingual support (English + Chinese) with language-synced achievements
 - Classic broadsheet newspaper aesthetic with real paper texture
+- localStorage + server-side JSON persistence with auto-restore on refresh
 
 Built at the **TRAE Friends Zhengzhou hackathon**.
 
@@ -25,12 +28,14 @@ Built at the **TRAE Friends Zhengzhou hackathon**.
 | Framework | Next.js 16.2.9 (App Router, Turbopack) |
 | Frontend | React 19.2, TypeScript 5.5 |
 | Styling | Tailwind CSS 3.4 |
-| AI Article | Zhipu GLM-4-Flash (primary), OpenAI gpt-4o-mini (fallback) |
-| AI Image | Zhipu CogView-3-Plus (primary), OpenAI DALL-E 2 (fallback), SVG (last resort) |
+| AI Article | Zhipu GLM-4-Flash (primary, server-side), pre-built templates (fallback) |
+| AI Image | Zhipu CogView-3-Plus (primary, **client-side**), no SVG fallback |
+| AI Achievements | Zhipu GLM-4-Flash (category + language aware) |
 | QR Codes | qrcode.react 4.2 |
-| Storage (client) | localStorage |
-| Storage (server) | File-based JSON (`.data/capsules.json`) |
-| Deployment | Vercel |
+| Storage (client) | localStorage (max 5 capsules, compressed photos) |
+| Storage (server) | File-based JSON (`.data/capsules.json` + `.data/shares.json`) |
+| Share Links | Server-side tokens (`/share/<9char>`) with full image data |
+| Deployment | Vercel (Hobby plan, 10s function limit) |
 
 ---
 
@@ -50,10 +55,11 @@ You are a witty future newspaper journalist. {languageInstruction}Write an inspi
 Name: {name}. Team: {team}. Achievement they're known for: {achievement}. The newspaper is dated {futureDate} (year {year}). Write their {year} success story as a front-page newspaper article set in {year}.
 ```
 
-### 3.3 Image Generation — Illustration Prompt
+### 3.3 Image Generation — Illustration Prompt (Client-Side)
 ```
-Photorealistic futuristic {year} scene, {article.image_prompt}, professional photography, high resolution, 8k, sharp focus, cinematic lighting, detailed textures, natural colors, vintage newspaper style photograph, warm sepia tones, aged paper texture overlay, documentary photography, no people, no faces, sci-fi elements, ultra realistic, photojournalism style
+{article.image_prompt}, photorealistic, vintage newspaper photo, sepia tones, warm lighting, no people no faces
 ```
+**Note:** Prompt kept short (~100 chars) because CogView-3-Plus rejects prompts over ~200 chars.
 
 ### 3.4 AI Article Expected JSON Shape
 ```json
@@ -65,6 +71,36 @@ Photorealistic futuristic {year} scene, {article.image_prompt}, professional pho
   "future_quote": "string (first-person quote)",
   "reward": "string (fun lavish reward line)",
   "image_prompt": "string (English, scene description, no people/faces)"
+}
+```
+
+### 3.5 Achievement Generation — System Prompt
+```
+{languageInstruction}You are a witty hackathon participant coming up with absurd, funny future achievements. Generate 3 short, humorous achievement ideas based on the given category. Each achievement should be 1-2 sentences, funny, tech-themed, and about extraordinary future success. Return ONLY a valid JSON array of strings, no markdown, no code fences.
+```
+
+### 3.6 Achievement Generation — User Prompt
+```
+Generate 3 funny future achievements for the category: {categoryName}. Make them absurd, tech-focused, and humorous.
+```
+
+**Category names by language:**
+| Category ID | English | Chinese |
+|---|---|---|
+| tech | Tech & Coding | 科技与编程 |
+| ai | AI Mayhem | AI疯狂 |
+| money | Money & Startups | 金钱与创业 |
+| time | Time & Chaos | 时间与混乱 |
+| all | General Tech/Hackathon | 综合科技/黑客马拉松 |
+
+### 3.7 Achievement Generation — Expected Response
+```json
+{
+  "achievements": [
+    "Invented a compiler that writes haikus about the code it compiles",
+    "Fixed a bug so old it had its own pension plan",
+    "Built an IDE that argues with you about code style"
+  ]
 }
 ```
 
@@ -99,8 +135,8 @@ Photorealistic futuristic {year} scene, {article.image_prompt}, professional pho
 - Labels: `Libre Caslon Text` small-caps
 
 **Chinese:**
-- Headlines: `Noto Serif SC`, `ZCOOL KuHei`, Plix, Ruizi JunXian, TASA Explorer, DianZi FangHei, XinYugong PinTi
-- Body: `Noto Serif SC`, `Noto Sans SC`, `PingFang SC`, `Microsoft YaHei`
+- Headlines: `Noto Serif SC`, `ZCOOL KuHei`
+- Body: `Noto Sans SC`, `PingFang SC`, `Microsoft YaHei`
 
 **Google Fonts URL:**
 ```
@@ -115,7 +151,7 @@ https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,4
 - Justified text with hyphenation
 - Drop cap on first paragraph (4.2rem, accent color)
 - Double-rule masthead border (3px double)
-- Polaroid photo frame: 10px padding, 36px bottom, rotate -2deg, soft shadow, `#f4ead5` background
+- Polaroid photo frame: 10px padding, 36px bottom, rotate -2deg, soft shadow, `#f4ead5` background (matches newspaper, not white)
 
 ### 4.5 Photo Filter (Uploaded User Photo)
 ```css
@@ -124,8 +160,9 @@ filter: sepia(50%) saturate(140%) contrast(100%) brightness(108%) hue-rotate(-8d
 
 ### 4.6 AI Illustration
 - Max height: `max-h-64` (256px) with `object-cover`
-- Only shown if generation succeeds (no empty slots)
-- Fallback: built-in SVG scenes (5 vintage-style illustrations)
+- Only shown if generation succeeds (no empty slots, no SVG fallback)
+- Generated **client-side** via browser fetch to GLM (bypasses Vercel 10s limit)
+- 30-second browser timeout (CogView takes 10-15s)
 
 ---
 
@@ -137,25 +174,32 @@ future-time-capsule/
 │   ├── api/
 │   │   ├── capsules/
 │   │   │   └── route.ts              # CRUD API for persistence (GET/POST/DELETE)
+│   │   ├── generate-achievement/
+│   │   │   └── route.ts              # AI achievement suggestions (GLM, category + language aware)
 │   │   ├── generate-article/
-│   │   │   └── route.ts              # Article generation (GLM → OpenAI → fallback templates)
-│   │   └── generate-image/
-│   │       └── route.ts              # Image generation (GLM CogView-3 → OpenAI DALL-E 2 → SVG)
+│   │   │   └── route.ts              # Article generation (GLM → pre-built fallback templates)
+│   │   ├── generate-image/
+│   │   │   └── route.ts              # Image generation API (server-side fallback, rarely used)
+│   │   └── share/
+│   │       └── route.ts              # Share token CRUD — POST creates token, GET retrieves newspaper
 │   ├── form/
-│   │   └── page.tsx                  # Form page — input, photo upload, generation flow
+│   │   └── page.tsx                  # Form page — input, photo upload, client-side image gen, share flow
+│   ├── share/
+│   │   └── [token]/
+│   │       └── page.tsx              # Shared newspaper view — fetches by token, shows all images
 │   ├── globals.css                   # All newspaper styles, textures, fonts, animations
 │   ├── layout.tsx                    # Root layout, Google Fonts, metadata
 │   └── page.tsx                      # Landing page + shared newspaper hash router
 ├── components/
-│   ├── CapsuleForm.tsx               # Name/team/achievement form, photo upload, category chips
-│   ├── Landing.tsx                   # Homepage — masthead, lead story, QR code, CTA
-│   └── Newspaper.tsx                 # Generated newspaper rendering, QR code, share link
+│   ├── CapsuleForm.tsx               # Name/team/achievement form, photo upload, AI "Surprise me", language toggle
+│   ├── Landing.tsx                   # Homepage — masthead, lead story, QR code (→ /form), CTA
+│   └── Newspaper.tsx                 # Generated newspaper rendering, QR code (→ /share/token), share link
 ├── lib/
-│   ├── db.ts                         # File-based JSON database (fs module)
+│   ├── db.ts                         # File-based JSON database (fs module, /tmp on Vercel)
 │   ├── i18n.ts                       # EN/ZH translations + date formatting
-│   ├── storage.ts                    # localStorage CRUD + DB sync
+│   ├── storage.ts                    # localStorage CRUD (max 5 capsules) + DB sync
 │   └── types.ts                      # TypeScript types (Language, ArticleData, CapsuleInput)
-├── .env.example                      # API key placeholders
+├── .env.example                      # API key placeholders (includes NEXT_PUBLIC_GLM_API_KEY)
 ├── .env.local                        # Real API keys (gitignored)
 ├── .gitignore                        # Node, Next.js, .env, .trae, .data
 ├── eslint.config.mjs                 # ESLint 9 flat config
@@ -201,87 +245,114 @@ export interface CapsuleInput {
 
 ### 6.3 `lib/storage.ts`
 - `SavedCapsule` interface with `id`, `createdAt`, article, images, metadata
-- `saveCapsule()` — saves to localStorage + POSTs to `/api/capsules`
+- `saveCapsule()` — saves to localStorage (max 5, compressed) + POSTs to `/api/capsules`
 - `getAllCapsules()` — reads from localStorage
 - `loadCapsulesFromDb()` — fetches from `/api/capsules` and syncs to localStorage
 - `deleteCapsule()` — removes from localStorage + DELETEs from API
+- 3-tier fallback for localStorage quota: full → without images → current only
 
 ### 6.4 `lib/db.ts`
-- File-based JSON storage at `.data/capsules.json`
+- File-based JSON storage at `.data/capsules.json` (local) or `/tmp/.data/capsules.json` (Vercel)
 - Uses Node.js `fs` module (synchronous read/write)
+- All operations wrapped in try/catch — never throws (Vercel read-only filesystem safe)
 - Functions: `saveCapsuleToDb()`, `getCapsuleFromDb()`, `getAllCapsulesFromDb()`, `deleteCapsuleFromDb()`
 
 ### 6.5 `app/api/generate-article/route.ts`
-- **Provider chain**: GLM-4-Flash (primary) → OpenAI gpt-4o-mini (fallback) → pre-built templates (last resort)
-- Per-provider timeout: 20 seconds
-- Returns JSON: `{ article: ArticleData, provider: "glm" | "openai" | "fallback" }`
+- **Provider chain**: GLM-4-Flash (primary, 5s timeout) → pre-built templates (instant fallback)
+- **No OpenAI fallback** — removed because it always times out from China and wastes time
+- `maxDuration = 10` (Vercel Hobby compatible)
+- Returns JSON: `{ article: ArticleData, provider: "glm" | "fallback" }`
 - 5 pre-built template categories: tech, ai, money, time, default (each with EN + ZH variants)
 - Templates include headline, 3 paragraphs, quote, reward, and image prompt functions
 
-### 6.6 `app/api/generate-image/route.ts`
-- **Provider chain**: GLM CogView-3-Plus (primary) → OpenAI DALL-E 2 (fallback) → SVG generator (last resort)
-- Per-provider timeout: 15 seconds
-- GLM endpoint: `https://open.bigmodel.cn/api/paas/v4/images/generations`
-- GLM params: `model: "cogview-3-plus"`, `size: "1024x1024"`, `quality: "hd"`
-- Returns base64 data URL: `data:image/png;base64,...`
-- SVG fallback: 5 vintage scenes (farmhouse, mountains, city skyline, trees, landscape) with sepia tones
+### 6.6 `app/api/generate-image/route.ts` (Server-side fallback only)
+- **Rarely used** — image generation primarily happens client-side in `app/form/page.tsx`
+- Server-side fallback: GLM CogView-3-Plus → returns error (no SVG)
+- `maxDuration = 10` (Vercel Hobby compatible)
+- If both fail, returns `{ src: null }` — newspaper shows without illustration
 
-### 6.7 `app/api/capsules/route.ts`
+### 6.7 `app/api/generate-achievement/route.ts` (NEW)
+- Uses GLM-4-Flash to generate 3 funny achievements based on category + language
+- `maxDuration = 10`
+- System prompt: witty hackathon participant, returns JSON array of 3 strings
+- If GLM fails, returns `{ achievements: null }` — client falls back to pre-defined pool
+- `temperature: 1.0` for maximum creativity
+
+### 6.8 `app/api/share/route.ts` (NEW)
+- `POST` — saves full newspaper data (article + imageUrl + photoUrl + metadata) to `.data/shares.json`, returns 9-char token
+- `GET /api/share/<token>` — retrieves full newspaper data by token
+- Token format: 9 random alphanumeric chars (e.g., `abc123xyz`)
+- Share URL: `https://domain.com/share/abc123xyz` — short enough for QR codes
+
+### 6.9 `app/api/capsules/route.ts`
 - `GET` — returns all capsules from JSON file
 - `POST` — saves a capsule (insert or update by ID)
 - `DELETE` — deletes by ID
 
-### 6.8 `app/page.tsx` (Landing + Shared Newspaper)
+### 6.10 `app/page.tsx` (Landing + Shared Newspaper)
 - Reads URL hash: `#form` → redirects to `/form`
 - Reads URL hash: `#<base64>` → decodes shared newspaper and displays it
 - No hash → shows `Landing` component
 
-### 6.9 `app/form/page.tsx` (Form + Generation Flow)
-- `useEffect` on mount: loads from localStorage/DB, restores last newspaper if exists
+### 6.11 `app/form/page.tsx` (Form + Generation Flow + Client-Side Image Gen)
+- **Client-side image generation**: `generateImageClientSide()` calls GLM CogView-3-Plus directly from browser with 30s timeout (bypasses Vercel's 10s function limit)
+- Uses `NEXT_PUBLIC_GLM_API_KEY` (exposed to client)
+- `useEffect` on mount: checks URL hash → checks `/share/<token>` path → loads from localStorage/DB
 - `handleGenerate()`:
   1. POST `/api/generate-article` with CapsuleInput
-  2. POST `/api/generate-image` with illustration prompt (sequential, needs article's image_prompt)
-  3. Save to localStorage + DB
-  4. Encode newspaper data as base64 URL hash for sharing
-  5. Show Newspaper component
+  2. Call GLM CogView-3-Plus **directly from browser** for image (30s timeout)
+  3. Upload full newspaper (with images) to `/api/share` → get share token
+  4. Share URL becomes `/share/<token>` (short, QR-friendly)
+  5. Save to localStorage + DB
+  6. Show Newspaper component
+- If image generation fails: newspaper shows without illustration (no SVG, no empty slot)
+- If share upload fails: falls back to base64 URL hash
 
-### 6.10 `components/CapsuleForm.tsx`
+### 6.12 `app/share/[token]/page.tsx` (NEW)
+- Dynamic route for shared newspapers
+- Fetches newspaper data from `/api/share/<token>`
+- Shows full Newspaper component with all images
+- "Create Another" button redirects to `/form`
+
+### 6.13 `components/CapsuleForm.tsx`
 - Form fields: name, team, future date (native date picker), achievement (textarea)
 - Photo upload: two buttons — "Take Photo" (`capture="environment"`) and "Choose from Gallery"
-- Photo stored as base64 data URL via `FileReader.readAsDataURL()`
+- Photo compressed to 400×500px JPEG @ 0.7 quality (~50-100KB) via canvas before storing as base64
 - Achievement suggestions: 4 categories (tech, ai, money, time) + "All" filter
-- "Surprise me" button — random achievement from selected category
+- **"Surprise me" button** — calls `/api/generate-achievement` API for AI-generated achievements:
+  - Sends current category + language
+  - If AI succeeds: sets achievement to first item, chips to all 3 items
+  - If AI fails: falls back to pre-defined pool (random selection)
 - Language toggle button (EN ↔ 中文)
 - `useEffect` on language change: re-rolls chips AND auto-selects new achievement in current language
 
-### 6.11 `components/Landing.tsx`
+### 6.14 `components/Landing.tsx`
 - Layout: top bar → masthead → lead story → QR + CTA → footer
-- QR code encodes `origin/#form` URL (bypasses landing page when scanned)
+- **QR code always encodes `origin/form`** — scanning takes user to form to create new newspaper
 - CTA button navigates to `/form`
 - Uses landing-specific fonts (Libre Caslon + Lora), NOT newspaper fonts
 
-### 6.12 `components/Newspaper.tsx`
+### 6.15 `components/Newspaper.tsx`
 - Full broadsheet layout: masthead, byline, headline, drop-cap article, pull quote, reward
-- Uploaded photo in polaroid frame with sepia filter
-- AI illustration (if available) with caption
-- QR code for sharing (encodes full newspaper URL with base64 hash)
-- "Copy Link" button (copies full URL with hash)
-- "Create Another" button (resets to form)
+- Uploaded photo in polaroid frame with sepia filter (frame color: `#f4ead5`, not white)
+- AI illustration (if available) with caption, max-h-64
+- **QR code encodes share URL** (`/share/<token>`) — anyone scanning sees full newspaper with images
+- "Copy Link" button copies share URL
+- "Create Another" button resets to form
 - QR error correction: `L` (max capacity)
-- If share URL > 1500 chars, QR falls back to `/#form`
 
-### 6.13 `app/globals.css`
+### 6.16 `app/globals.css`
 - CSS variables for paper/ink/accent colors
 - Year-shifted accent variables (near/mid/far)
 - Font classes: `.h-headline`, `.h-body`, `.h-label` (newspaper), `.landing-headline`, `.landing-body`, `.landing-label` (landing)
 - `.newspaper-paper` — real paper texture from transparenttextures.com
-- `.polaroid-frame` — white border, thick bottom, rotate -2deg, shadow
+- `.polaroid-frame` — `#f4ead5` border, thick bottom, rotate -2deg, shadow
 - `.paper-grain` — dot gradient texture
 - `.press-body` — justified text with hyphenation
 - `.drop-cap` — large initial letter (4.2rem, accent color)
 - `.press-spinner` — loading animation
 
-### 6.14 `tailwind.config.ts`
+### 6.17 `tailwind.config.ts`
 - Custom font families for newspaper (Special Elite, Courier Prime) and landing (Libre Caslon, Lora)
 - Chinese font stacks for headline and body
 - Custom colors: `paper`, `ink`, `accent`, `accent-soft` (via CSS variables)
@@ -302,14 +373,22 @@ export interface CapsuleInput {
 ### 7.2 Roast Pool (used when "All" selected)
 - 12 EN items + 12 ZH items (hackathon-flavored punchlines)
 
+### 7.3 AI "Surprise Me"
+- Calls `/api/generate-achievement` with category + language
+- GLM-4-Flash generates 3 new funny achievements
+- Falls back to pre-defined pool if AI fails
+
 ---
 
 ## 8. ENVIRONMENT VARIABLES
 
 | Variable | Required | Description |
 |---|---|---|
-| `GLM_API_KEY` | Yes | Zhipu GLM API key (article + image generation) |
-| `OPENAI_API_KEY` | No | OpenAI API key (fallback for article + image) |
+| `GLM_API_KEY` | Yes | Zhipu GLM API key (server-side: article + achievement generation) |
+| `NEXT_PUBLIC_GLM_API_KEY` | Yes | Same GLM key, exposed to client for browser-side image generation |
+| `OPENAI_API_KEY` | No | OpenAI API key (optional fallback, rarely used) |
+
+**Vercel setup:** Add both `GLM_API_KEY` and `NEXT_PUBLIC_GLM_API_KEY` with the same value in Vercel → Settings → Environment Variables → Production.
 
 ---
 
@@ -336,28 +415,31 @@ npm install qrcode.react
 - `lib/i18n.ts` — all UI strings in EN + ZH, formatDate(), t()
 
 ### Step 6: Create Storage
-- `lib/storage.ts` — localStorage CRUD + DB sync via fetch
-- `lib/db.ts` — file-based JSON storage using fs
+- `lib/storage.ts` — localStorage CRUD (max 5, compressed) + DB sync via fetch
+- `lib/db.ts` — file-based JSON storage using fs (uses `/tmp` on Vercel)
 
 ### Step 7: Create API Routes
-- `app/api/generate-article/route.ts` — GLM → OpenAI → fallback templates
-- `app/api/generate-image/route.ts` — GLM CogView-3 → OpenAI DALL-E 2 → SVG
+- `app/api/generate-article/route.ts` — GLM (5s timeout) → pre-built fallback templates
+- `app/api/generate-achievement/route.ts` — GLM generates 3 funny achievements by category + language
+- `app/api/generate-image/route.ts` — server-side fallback (rarely used, client-side is primary)
 - `app/api/capsules/route.ts` — CRUD for persistence
+- `app/api/share/route.ts` — share token CRUD (POST creates, GET retrieves)
 
 ### Step 8: Create Components
-- `components/Landing.tsx` — masthead, lead story, QR, CTA
-- `components/CapsuleForm.tsx` — form with photo upload, achievements, language toggle
-- `components/Newspaper.tsx` — full newspaper render with QR and share
+- `components/Landing.tsx` — masthead, lead story, QR (→ /form), CTA
+- `components/CapsuleForm.tsx` — form with photo upload, AI "Surprise me", language toggle
+- `components/Newspaper.tsx` — full newspaper render with QR (→ /share/token) and share link
 
 ### Step 9: Create Pages
 - `app/page.tsx` — landing + shared newspaper hash router
-- `app/form/page.tsx` — form page with generation flow
+- `app/form/page.tsx` — form page with **client-side image generation** (30s timeout, bypasses Vercel limit)
+- `app/share/[token]/page.tsx` — shared newspaper view (fetches by token)
 
 ### Step 10: Add Styles
-- `app/globals.css` — all newspaper textures, fonts, animations, polaroid frame
+- `app/globals.css` — all newspaper textures, fonts, animations, polaroid frame (frame color: `#f4ead5`)
 
 ### Step 11: Configure Environment
-- `.env.local` — add `GLM_API_KEY` and `OPENAI_API_KEY`
+- `.env.local` — add `GLM_API_KEY`, `NEXT_PUBLIC_GLM_API_KEY` (same value), `OPENAI_API_KEY` (optional)
 - `.env.example` — placeholder template
 - `.gitignore` — add `.env*.local`, `.trae/`, `.data/`
 
@@ -366,7 +448,7 @@ npm install qrcode.react
 npm run dev          # local testing
 npm run build        # production build
 git push             # push to GitHub
-# Import on Vercel → add env vars → deploy
+# Import on Vercel → add env vars (GLM_API_KEY + NEXT_PUBLIC_GLM_API_KEY) → deploy
 ```
 
 ---
@@ -376,7 +458,10 @@ git push             # push to GitHub
 | Method | Route | Body | Response |
 |---|---|---|---|
 | POST | `/api/generate-article` | `{ name, team, achievement, futureDate, language, category }` | `{ article: ArticleData, provider: string }` |
-| POST | `/api/generate-image` | `{ prompt: string }` | `{ src: "data:image/...", provider: string }` |
+| POST | `/api/generate-achievement` | `{ category, language }` | `{ achievements: string[] \| null }` |
+| POST | `/api/generate-image` | `{ prompt: string }` | `{ src: string \| null, provider: string }` |
+| POST | `/api/share` | `SharedNewspaper` | `{ token: string }` |
+| GET | `/api/share/<token>` | — | `SharedNewspaper` |
 | GET | `/api/capsules` | — | `DbCapsule[]` |
 | POST | `/api/capsules` | `DbCapsule` | `{ success: true }` |
 | DELETE | `/api/capsules` | `{ id: string }` | `{ success: true }` |
@@ -385,38 +470,41 @@ git push             # push to GitHub
 
 ## 11. KEY DESIGN DECISIONS
 
-1. **GLM first, OpenAI second** — GLM is accessible in China; OpenAI often times out
-2. **Sequential article→image** — image prompt depends on article's `image_prompt` field
-3. **Base64 data URLs for photos** — survives re-renders, no blob URL revocation needed
-4. **File-based JSON instead of SQLite** — no native compilation, works on Vercel
-5. **URL hash encoding** — shareable newspaper links without a database lookup
-6. **Separate font systems** — landing page uses serif (Caslon/Lora), newspaper uses typewriter (Special Elite/Courier Prime)
-7. **Real paper texture** — transparenttextures.com PNG overlay, not CSS gradients
-8. **SVG fallback illustrations** — 5 vintage scenes that match newspaper aesthetic
-9. **Language sync** — switching language re-rolls achievement chips AND input text
-10. **QR capacity safety** — strips image data from shared URL, falls back to `/#form` if too long
+1. **GLM first, no OpenAI for articles** — OpenAI always times out from China, wastes 8s. GLM only (5s timeout) → instant fallback templates if fails.
+2. **Client-side image generation** — CogView takes 10-15s, exceeding Vercel's 10s function limit. Browser fetch has no timeout limit (30s set). Uses `NEXT_PUBLIC_GLM_API_KEY`.
+3. **No SVG fallback** — if image generation fails, newspaper shows without illustration (no empty slot, no SVG).
+4. **Server-side share tokens** — `/share/abc123xyz` URLs include all images + text. Short enough for QR codes. Anyone can view.
+5. **Homepage QR → /form** — scanning homepage QR takes user to form to create new newspaper (not a shared one).
+6. **Newspaper QR → /share/<token>** — scanning newspaper QR shows the full newspaper with all images.
+7. **Photo compression** — 400×500px JPEG @ 0.7 quality (~50-100KB) via canvas. Prevents localStorage quota overflow.
+8. **File-based JSON instead of SQLite** — no native compilation, works on Vercel serverless. Uses `/tmp` in production.
+9. **AI "Surprise me"** — generates category-aware, language-aware funny achievements via GLM-4-Flash. Falls back to pre-defined pool.
+10. **Separate font systems** — landing page uses serif (Caslon/Lora), newspaper uses typewriter (Special Elite/Courier Prime).
+11. **Polaroid frame color** — `#f4ead5` (matches newspaper paper), not white.
+12. **maxDuration = 10** — all API routes set to 10s (Vercel Hobby plan compatible).
 
 ---
 
 ## 12. MVP FEATURES
 
-- [x] Landing page with QR code and CTA
-- [x] Form with name, team, achievement, photo upload, date picker
-- [x] AI article generation (GLM-4-Flash)
-- [x] AI image generation (CogView-3-Plus)
+- [x] Landing page with QR code (→ /form) and CTA
+- [x] Form with name, team, achievement, photo upload (camera + gallery), date picker
+- [x] AI article generation (GLM-4-Flash, 5s timeout, pre-built fallback)
+- [x] AI image generation (CogView-3-Plus, **client-side**, 30s timeout)
+- [x] AI achievement suggestions ("Surprise me" — category + language aware)
 - [x] Newspaper rendering with vintage broadsheet aesthetic
-- [x] Polaroid photo frame with sepia filter
-- [x] QR code for sharing
-- [x] Copy link button
-- [x] Bilingual support (EN/ZH)
-- [x] Achievement suggestions with categories
-- [x] "Surprise me" random achievement
-- [x] localStorage persistence
+- [x] Polaroid photo frame with sepia filter (frame matches paper color)
+- [x] QR code for sharing (homepage → /form, newspaper → /share/<token>)
+- [x] Copy link button (copies /share/<token> URL)
+- [x] Server-side share tokens with full image data
+- [x] Bilingual support (EN/ZH) with language-synced achievements
+- [x] Achievement suggestions with 4 categories + AI generation
+- [x] localStorage persistence (max 5, compressed photos)
 - [x] Server-side JSON file persistence
 - [x] Auto-restore last newspaper on page load
 - [x] Responsive design (mobile + desktop)
 - [x] Fallback chain for AI providers
-- [x] SVG fallback illustrations
+- [x] Vercel Hobby plan compatible (10s function limit)
 
 ---
 
@@ -430,6 +518,7 @@ git push             # push to GitHub
 - [ ] Custom newspaper names
 - [ ] Multiple newspaper layouts
 - [ ] Email capsule to future date
+- [ ] Permanent server-side storage (database instead of /tmp JSON)
 
 ---
 
@@ -458,13 +547,16 @@ git push
 
 1. Push to GitHub
 2. Go to [vercel.com](https://vercel.com) → New Project → Import `future-is-here`
-3. Add environment variables:
-   - `GLM_API_KEY` = your key
-   - `OPENAI_API_KEY` = your key (optional)
+3. Add environment variables (Production environment):
+   - `GLM_API_KEY` = your Zhipu GLM API key
+   - `NEXT_PUBLIC_GLM_API_KEY` = same key (for client-side image generation)
+   - `OPENAI_API_KEY` = your OpenAI key (optional)
 4. Deploy
 5. Verify: visit URL, test form, check function logs
 
-**Note:** `maxDuration = 60` requires Vercel Pro. On Hobby plan, change to `maxDuration = 10`.
+**Important:** Without `NEXT_PUBLIC_GLM_API_KEY`, image generation will not work in production (browser can't call GLM directly).
+
+**Vercel Hobby plan:** All API routes use `maxDuration = 10` (10-second function limit). Image generation happens client-side (30s timeout) to bypass this limit.
 
 ---
 

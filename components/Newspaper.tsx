@@ -351,7 +351,9 @@ export default function Newspaper({
             <div className="border-2 border-ink p-1 bg-[#f4ead5]">
               <QRCodeSVG
                 value={
-                  shareUrl || `${typeof window !== "undefined" ? window.location.origin : ""}`
+                  shareUrl && shareUrl.length <= 300
+                    ? shareUrl
+                    : `${typeof window !== "undefined" ? window.location.origin : ""}`
                 }
                 size={96}
                 bgColor="#f4ead5"
@@ -384,12 +386,23 @@ export default function Newspaper({
             >
               {copied ? t(language, "copied") : t(language, "copyLink")}
             </button>
-            <button
-              onClick={onReset}
-              className={`h-headline ${headlineFont} text-sm border-2 border-ink bg-ink text-paper px-4 py-2 hover:bg-paper hover:text-ink transition-colors`}
-            >
-              {t(language, "createAnother")}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onReset}
+                className={`flex-1 h-headline ${headlineFont} text-sm border-2 border-ink bg-ink text-paper px-4 py-2 hover:bg-paper hover:text-ink transition-colors`}
+              >
+                {t(language, "createAnother")}
+              </button>
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined") window.location.href = "/";
+                }}
+                className={`text-sm border-2 border-ink px-3 py-2 hover:bg-ink hover:text-paper transition-colors ${bodyFont}`}
+                title={language === "zh" ? "首页" : "Home"}
+              >
+                {language === "zh" ? "首页" : "Home"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

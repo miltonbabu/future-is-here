@@ -253,7 +253,7 @@ export default function CapsuleForm({
 
   const surpriseMe = async () => {
     const pool = getPool(activeCategory, language);
-    
+
     try {
       const res = await fetch("/api/generate-achievement", {
         method: "POST",
@@ -261,15 +261,14 @@ export default function CapsuleForm({
         body: JSON.stringify({ category: activeCategory, language }),
       });
       const data = await res.json();
-      
+
       if (data.achievements && data.achievements.length > 0) {
         setAchievement(data.achievements[0]);
         setChips(data.achievements);
         return;
       }
-    } catch {
-    }
-    
+    } catch {}
+
     if (pool.length) {
       setAchievement(pool[Math.floor(Math.random() * pool.length)]);
     }
@@ -311,13 +310,24 @@ export default function CapsuleForm({
     >
       <div className="w-full max-w-xl bg-paper border-2 border-ink p-6 sm:p-10">
         <div className="flex justify-between items-center mb-6">
-          <button
-            type="button"
-            onClick={() => onLanguageChange(language === "en" ? "zh" : "en")}
-            className="h-label text-[10px] sm:text-xs border border-ink/40 hover:border-accent hover:text-accent px-2 py-1 transition-colors"
-          >
-            {t(language, "langToggle")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") window.location.href = "/";
+              }}
+              className="h-label text-[10px] sm:text-xs border border-ink/40 hover:border-accent hover:text-accent px-2 py-1 transition-colors"
+            >
+              {language === "zh" ? "← 首页" : "← Home"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onLanguageChange(language === "en" ? "zh" : "en")}
+              className="h-label text-[10px] sm:text-xs border border-ink/40 hover:border-accent hover:text-accent px-2 py-1 transition-colors"
+            >
+              {t(language, "langToggle")}
+            </button>
+          </div>
           <p className="h-label text-[10px] sm:text-xs text-ink/70">
             {t(language, "timesLabel")}
           </p>
