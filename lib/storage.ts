@@ -39,8 +39,8 @@ export function saveCapsule(capsule: Omit<SavedCapsule, "id" | "createdAt">): Sa
   };
   const all = getAllCapsules();
   all.unshift(entry);
-  // Keep only the latest 5 capsules to stay within localStorage's 5MB limit
-  const trimmed = all.slice(0, 5);
+  // Keep only the latest 20 capsules
+  const trimmed = all.slice(0, 20);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   } catch {

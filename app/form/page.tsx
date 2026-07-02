@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import CapsuleForm from "@/components/CapsuleForm";
 import Newspaper from "@/components/Newspaper";
 import type { ArticleData, CapsuleInput, Language } from "@/lib/types";
-import { saveCapsule, getAllCapsules, loadCapsulesFromDb } from "@/lib/storage";
+import { saveCapsule, getAllCapsules, type SavedCapsule } from "@/lib/storage";
 
 interface SharedNewspaper {
   article: ArticleData;
@@ -15,38 +15,6 @@ interface SharedNewspaper {
   team: string;
   futureDate: string;
   language: Language;
-}
-
-function generateShareToken(): string {
-  return Math.random().toString(36).substring(2, 11);
-}
-
-async function uploadToShareServer(
-  data: SharedNewspaper,
-): Promise<string | null> {
-  try {
-    const res = await fetch("/api/share", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    const result = await res.json();
-    return result.token || null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchFromShareServer(
-  token: string,
-): Promise<SharedNewspaper | null> {
-  try {
-    const res = await fetch(`/api/share/${token}`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
 }
 
 function encode(data: SharedNewspaper): string {
@@ -93,36 +61,22 @@ async function generateImageClientSide(prompt: string): Promise<string | null> {
 
     clearTimeout(timer);
 
-    if (!res.ok) {
-      console.error(
-        `[client-image] GLM ${res.status}:`,
-        await res.text().catch(() => ""),
-      );
-      return null;
-    }
+    if (!res.ok) return null;
 
     const data = await res.json();
     const imgUrl: string | undefined = data?.data?.[0]?.url;
-    if (!imgUrl) {
-      console.error("[client-image] No URL in response");
-      return null;
-    }
-
-    console.log("[client-image] GLM succeeded");
-    return imgUrl;
-  } catch (err) {
+    return imgUrl || null;
+  } catch {
     clearTimeout(timer);
-    console.error(
-      "[client-image] Failed:",
-      err instanceof Error ? err.message : err,
-    );
     return null;
   }
 }
 
 export default function FormPage() {
   const router = useRouter();
-  const [view, setView] = useState<"form" | "loading" | "result">("form");
+  const [view, setView] = useState<"form" | "loading" | "result" | "archive">(
+    "form",
+  );
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -131,6 +85,8 @@ export default function FormPage() {
   const [language, setLanguage] = useState<Language>("en");
   const [shareUrl, setShareUrl] = useState("");
 
+  // Only restore from hash/share links — NOT from localStorage on refresh.
+  // localStorage is only accessed when user clicks "All My Newspapers".
   useEffect(() => {
     const hash = window.location.hash.slice(1);
     if (hash) {
@@ -156,49 +112,29 @@ export default function FormPage() {
     const path = window.location.pathname;
     const match = path.match(/^\/share\/([a-zA-Z0-9]{9})$/);
     if (match) {
-      fetchFromShareServer(match[1]).then((data) => {
-        if (data) {
-          setArticle(data.article);
-          setImageUrl(data.imageUrl);
-          setPhotoUrl(data.photoUrl);
-          setLastInput({
-            name: data.name,
-            team: data.team,
-            achievement: data.article.headline,
-            futureDate: data.futureDate,
-            language: data.language,
-            category: "default",
-          });
-          setLanguage(data.language);
-          setShareUrl(`${window.location.origin}/share/${match[1]}`);
-          setView("result");
-        }
-      });
+      fetch(`/api/share/${match[1]}`)
+        .then((res) => res.json())
+        .then((data: SharedNewspaper) => {
+          if (data) {
+            setArticle(data.article);
+            setImageUrl(data.imageUrl);
+            setPhotoUrl(data.photoUrl);
+            setLastInput({
+              name: data.name,
+              team: data.team,
+              achievement: data.article.headline,
+              futureDate: data.futureDate,
+              language: data.language,
+              category: "default",
+            });
+            setLanguage(data.language);
+            setShareUrl(`${window.location.origin}/share/${match[1]}`);
+            setView("result");
+          }
+        })
+        .catch(() => {});
       return;
     }
-
-    const restoreFromStorage = async () => {
-      await loadCapsulesFromDb();
-      const capsules = getAllCapsules();
-      if (capsules.length > 0) {
-        const latest = capsules[0];
-        setArticle(latest.article);
-        setImageUrl(latest.imageUrl);
-        setPhotoUrl(latest.photoUrl);
-        setLastInput({
-          name: latest.name,
-          team: latest.team,
-          achievement: latest.article.headline,
-          futureDate: latest.futureDate,
-          language: latest.language,
-          category: "default",
-        });
-        setLanguage(latest.language);
-        setShareUrl(latest.shareUrl);
-        setView("result");
-      }
-    };
-    restoreFromStorage();
   }, []);
 
   const handleGenerate = async (input: CapsuleInput, photo: string) => {
@@ -243,10 +179,19 @@ export default function FormPage() {
       };
 
       let url = "";
-      const token = await uploadToShareServer(shared);
-      if (token) {
-        url = `${window.location.origin}/share/${token}`;
-      } else {
+      try {
+        const res = await fetch("/api/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(shared),
+        });
+        const result = await res.json();
+        if (result.token) {
+          url = `${window.location.origin}/share/${result.token}`;
+        }
+      } catch {}
+
+      if (!url) {
         const hash = encode(shared);
         url = `${window.location.origin}/#${hash}`;
       }
@@ -254,7 +199,7 @@ export default function FormPage() {
       window.history.replaceState(
         null,
         "",
-        token ? `/share/${token}` : `/#${url}`,
+        url.includes("/share/") ? url : `/#${encode(shared)}`,
       );
       setShareUrl(url);
 
@@ -284,6 +229,26 @@ export default function FormPage() {
     setErrorMsg(null);
     setShareUrl("");
     setView("form");
+    if (typeof window !== "undefined" && window.location.hash) {
+      window.history.replaceState(null, "", "/form");
+    }
+  };
+
+  const openArchiveNewspaper = (cap: SavedCapsule) => {
+    setArticle(cap.article);
+    setImageUrl(cap.imageUrl);
+    setPhotoUrl(cap.photoUrl);
+    setLastInput({
+      name: cap.name,
+      team: cap.team,
+      achievement: cap.article.headline,
+      futureDate: cap.futureDate,
+      language: cap.language,
+      category: "default",
+    });
+    setLanguage(cap.language);
+    setShareUrl(cap.shareUrl);
+    setView("result");
   };
 
   if (view === "result" && article && lastInput) {
@@ -302,14 +267,145 @@ export default function FormPage() {
     );
   }
 
+  if (view === "archive") {
+    return (
+      <ArchiveView
+        language={language}
+        onBack={() => setView("form")}
+        onOpen={openArchiveNewspaper}
+      />
+    );
+  }
+
   return (
-    <CapsuleForm
-      onGenerate={handleGenerate}
-      onPhotoChange={setPhotoUrl}
-      loading={view === "loading"}
-      errorMsg={errorMsg}
-      language={language}
-      onLanguageChange={setLanguage}
-    />
+    <div className="relative">
+      {/* Floating "All My Newspapers" button */}
+      <button
+        onClick={() => setView("archive")}
+        className="fixed bottom-4 right-4 z-50 text-xs sm:text-sm border-2 border-ink bg-paper text-ink px-3 py-2 hover:bg-ink hover:text-paper transition-colors shadow-md"
+      >
+        {language === "zh" ? "我的报纸" : "My Newspapers"}
+      </button>
+      <CapsuleForm
+        onGenerate={handleGenerate}
+        onPhotoChange={setPhotoUrl}
+        loading={view === "loading"}
+        errorMsg={errorMsg}
+        language={language}
+        onLanguageChange={setLanguage}
+      />
+    </div>
+  );
+}
+
+// ── Archive View ──────────────────────────────────────────────
+function ArchiveView({
+  language,
+  onBack,
+  onOpen,
+}: {
+  language: Language;
+  onBack: () => void;
+  onOpen: (cap: SavedCapsule) => void;
+}) {
+  const [capsules, setCapsules] = useState<SavedCapsule[]>([]);
+
+  useEffect(() => {
+    setCapsules(getAllCapsules());
+  }, []);
+
+  const handleDelete = (id: string) => {
+    const updated = getAllCapsules().filter((c) => c.id !== id);
+    localStorage.setItem("future-time-capsule-saved", JSON.stringify(updated));
+    setCapsules(updated);
+  };
+
+  if (capsules.length === 0) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-4 paper-grain">
+        <div className="text-center">
+          <p className="text-2xl font-headline text-ink mb-4">
+            {language === "zh" ? "还没有报纸" : "No newspapers yet"}
+          </p>
+          <button
+            onClick={onBack}
+            className="border-2 border-ink px-6 py-2 hover:bg-ink hover:text-paper transition-colors"
+          >
+            {language === "zh" ? "← 返回" : "← Back"}
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen p-4 sm:p-8 paper-grain">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl sm:text-3xl font-headline text-ink">
+            {language === "zh" ? "我的报纸" : "My Newspapers"}
+          </h1>
+          <button
+            onClick={onBack}
+            className="text-sm border-2 border-ink px-4 py-2 hover:bg-ink hover:text-paper transition-colors"
+          >
+            {language === "zh" ? "← 返回" : "← Back"}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {capsules.map((cap) => (
+            <div
+              key={cap.id}
+              className="border-2 border-ink bg-paper p-3 hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
+              onClick={() => onOpen(cap)}
+            >
+              {/* Thumbnail */}
+              <div className="aspect-[4/3] mb-2 overflow-hidden border border-ink/30 bg-[#f4ead5]">
+                {cap.photoUrl ? (
+                  <img
+                    src={cap.photoUrl}
+                    alt={cap.name}
+                    className="w-full h-full object-cover"
+                    style={{ filter: "sepia(50%) saturate(140%)" }}
+                  />
+                ) : cap.imageUrl ? (
+                  <img
+                    src={cap.imageUrl}
+                    alt="illustration"
+                    className="w-full h-full object-cover"
+                    style={{ filter: "sepia(30%)" }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-ink/30 text-xs">
+                    {language === "zh" ? "无图片" : "No image"}
+                  </div>
+                )}
+              </div>
+
+              {/* Info */}
+              <p className="font-headline text-sm font-bold text-ink line-clamp-2 mb-1">
+                {cap.article.headline}
+              </p>
+              <p className="text-xs text-ink/70 mb-1">
+                {cap.name} · {cap.team}
+              </p>
+              <p className="text-[10px] text-ink/50">{cap.futureDate}</p>
+
+              {/* Delete button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(cap.id);
+                }}
+                className="mt-2 text-[10px] text-red-700/70 hover:text-red-700 self-start"
+              >
+                {language === "zh" ? "删除" : "Delete"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </main>
   );
 }
