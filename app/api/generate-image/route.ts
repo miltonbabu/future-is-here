@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 export const maxDuration = 10;
 
-const GLM_IMAGE_ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/images/generations";
+const GLM_IMAGE_ENDPOINT =
+  "https://open.bigmodel.cn/api/paas/v4/images/generations";
 // CogView-3-Plus typically takes 6-8s. 8.5s timeout leaves 1.5s buffer
 // for Vercel's 10s function limit.
 const TIMEOUT_MS = 8_500;
@@ -13,7 +14,10 @@ export async function POST(req: Request) {
     const body = await req.json();
     prompt = body?.prompt;
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
   if (typeof prompt !== "string" || !prompt.trim()) {
@@ -50,7 +54,9 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      console.error(`[generate-image] GLM ${res.status}: ${text.slice(0, 300)}`);
+      console.error(
+        `[generate-image] GLM ${res.status}: ${text.slice(0, 300)}`,
+      );
       return NextResponse.json({ src: null, provider: "none" });
     }
 
@@ -58,7 +64,10 @@ export async function POST(req: Request) {
     const imgUrl: string | undefined = data?.data?.[0]?.url;
 
     if (!imgUrl) {
-      console.error("[generate-image] No URL in response:", JSON.stringify(data).slice(0, 200));
+      console.error(
+        "[generate-image] No URL in response:",
+        JSON.stringify(data).slice(0, 200),
+      );
       return NextResponse.json({ src: null, provider: "none" });
     }
 
@@ -66,7 +75,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ src: imgUrl, provider: "glm" });
   } catch (err) {
     clearTimeout(timer);
-    console.error("[generate-image] Failed:", err instanceof Error ? err.message : err);
+    console.error(
+      "[generate-image] Failed:",
+      err instanceof Error ? err.message : err,
+    );
     return NextResponse.json({ src: null, provider: "none" });
   }
 }

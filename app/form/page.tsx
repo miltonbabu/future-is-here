@@ -22,6 +22,66 @@ function encode(data: SharedNewspaper): string {
   return btoa(utf8);
 }
 
+/**
+ * Call GLM CogView-3-Plus directly from the browser.
+ * The browser has no 10s timeout limit like Vercel serverless functions.
+ * This allows the 10-15s image generation to complete successfully.
+ */
+async function generateImageClientSide(prompt: string): Promise<string | null> {
+  const glmKey = process.env.NEXT_PUBLIC_GLM_API_KEY;
+  if (!glmKey) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+
+  try {
+    const res = await fetch(
+      "https://open.bigmodel.cn/api/paas/v4/images/generations",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${glmKey.trim()}`,
+        },
+        body: JSON.stringify({
+          model: "cogview-3-plus",
+          prompt,
+          n: 1,
+          size: "1024x1024",
+        }),
+        signal: controller.signal,
+      },
+    );
+
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      console.error(
+        `[client-image] GLM ${res.status}:`,
+        await res.text().catch(() => ""),
+      );
+      return null;
+    }
+
+    const data = await res.json();
+    const imgUrl: string | undefined = data?.data?.[0]?.url;
+    if (!imgUrl) {
+      console.error("[client-image] No URL in response");
+      return null;
+    }
+
+    console.log("[client-image] GLM succeeded");
+    return imgUrl;
+  } catch (err) {
+    clearTimeout(timer);
+    console.error(
+      "[client-image] Failed:",
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}
+
 export default function FormPage() {
   const router = useRouter();
   const [view, setView] = useState<"form" | "loading" | "result">("form");
@@ -80,19 +140,12 @@ export default function FormPage() {
         return;
       }
 
+      // Generate image client-side — bypasses Vercel's 10s function limit.
+      // The browser has no timeout, so CogView's 10-15s generation works.
       let resolvedImageUrl: string | null = null;
       try {
-        const year = input.futureDate?.split("-")[0] || "2032";
         const illustrationPrompt = `${articleData.article.image_prompt}, photorealistic, vintage newspaper photo, sepia tones, warm lighting, no people no faces`;
-        const imageRes = await fetch("/api/generate-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: illustrationPrompt }),
-        });
-        const imageData = await imageRes.json();
-        if (imageRes.ok && imageData.src) {
-          resolvedImageUrl = imageData.src;
-        }
+        resolvedImageUrl = await generateImageClientSide(illustrationPrompt);
       } catch {
         // Image generation failed — proceed without illustration.
       }
