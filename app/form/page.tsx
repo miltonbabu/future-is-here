@@ -61,15 +61,55 @@ async function generateImageClientSide(prompt: string): Promise<string | null> {
 
     clearTimeout(timer);
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(
+        `[cogview] HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 120)}`,
+      );
+      return null;
+    }
 
     const data = await res.json();
     const imgUrl: string | undefined = data?.data?.[0]?.url;
+    if (!imgUrl)
+      console.warn(
+        "[cogview] No image URL in response:",
+        JSON.stringify(data).slice(0, 200),
+      );
     return imgUrl || null;
-  } catch {
+  } catch (err) {
     clearTimeout(timer);
+    console.warn("[cogview] Error:", err instanceof Error ? err.message : err);
     return null;
   }
+}
+
+/**
+ * Build a concise, contextual image prompt from BOTH the achievement text
+ * (the user's input) AND the AI-generated image_prompt (from the article API).
+ * CogView works best with prompts under ~150 characters, so we keep it tight.
+ *
+ * Structure: [achievement subject] + [AI scene description] + [style keywords]
+ */
+function buildImagePrompt(
+  achievement: string,
+  aiImagePrompt: string,
+  year: string,
+): string {
+  // Trim achievement to the core subject (max 60 chars)
+  const ach = achievement.trim().slice(0, 60);
+  // Trim AI scene description (max 50 chars)
+  const scene = aiImagePrompt?.trim().slice(0, 50) || "";
+
+  // Combine: achievement is the SUBJECT, AI prompt adds SCENE context
+  let prompt: string;
+  if (scene) {
+    prompt = `${ach}. ${scene}, futuristic ${year}, photorealistic sepia newspaper photo, no people no faces`;
+  } else {
+    prompt = `${ach}, futuristic ${year} scene, photorealistic sepia newspaper photo, no people no faces`;
+  }
+
+  // Hard cap at 180 chars to avoid CogView rejection
+  return prompt.slice(0, 180);
 }
 
 export default function FormPage() {
@@ -161,10 +201,15 @@ export default function FormPage() {
 
       let resolvedImageUrl: string | null = null;
       try {
-        // Use the AI-generated image_prompt as primary context, with the
-        // achievement text as fallback context to ensure relevance.
-        const achContext = input.achievement.slice(0, 80);
-        const illustrationPrompt = `${articleData.article.image_prompt || `a futuristic scene representing: ${achContext}`}, photorealistic, vintage newspaper photo, sepia tones, warm lighting, no people no faces`;
+        // Build image prompt from BOTH the achievement text AND the AI-generated
+        // image_prompt. Achievement = subject, AI prompt = scene context.
+        const year = input.futureDate?.split("-")[0] || "2032";
+        const illustrationPrompt = buildImagePrompt(
+          input.achievement,
+          articleData.article.image_prompt,
+          year,
+        );
+        console.log("[image] CogView prompt:", illustrationPrompt);
         resolvedImageUrl = await generateImageClientSide(illustrationPrompt);
       } catch {}
 
