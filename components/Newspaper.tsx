@@ -61,29 +61,90 @@ export default function Newspaper({
     }
   };
 
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const byteString = atob(dataUrl.split(",")[1]);
+    const mimeString = dataUrl.split(",")[0].split(":")[1].split(";")[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+  };
+
+  const isMobile = () =>
+    /iPhone|iPad|iPod|Android/i.test(
+      typeof navigator !== "undefined" ? navigator.userAgent : ""
+    );
+
   const handleDownload = async () => {
     if (!articleRef.current) return;
     setDownloading(true);
     try {
-      const dataUrl = await toPng(articleRef.current, {
+      const node = articleRef.current;
+
+      // Convert external images to same-origin data URLs so html-to-image can capture them
+      const imgs = node.querySelectorAll<HTMLImageElement>("img");
+      const restoreList: Array<{ img: HTMLImageElement; src: string }> = [];
+      for (const img of imgs) {
+        if (img.src.startsWith("http://") || img.src.startsWith("https://")) {
+          try {
+            const resp = await fetch(img.src);
+            const imgBlob = await resp.blob();
+            const reader = new FileReader();
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(imgBlob);
+            });
+            restoreList.push({ img, src: img.src });
+            img.src = dataUrl;
+          } catch {
+            /* skip images that fail to fetch */
+          }
+        }
+      }
+
+      // Determine pixel ratio based on device capability
+      const pixelRatio = isMobile() ? 1 : 2;
+
+      const dataUrl = await toPng(node, {
         quality: 0.95,
-        pixelRatio: 2,
+        pixelRatio,
         backgroundColor: "#f4ead5",
         skipFonts: true,
       });
 
-      // Convert base64 data URL to Blob to avoid browser size limits
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
+      // Restore original image sources
+      for (const { img, src } of restoreList) {
+        img.src = src;
+      }
 
-      const link = document.createElement("a");
-      link.download = `future-times-${dateInfo.year}.png`;
-      link.href = objectUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(objectUrl);
+      // Convert data URL to Blob directly (avoids fetch() quirks on mobile)
+      const blob = dataUrlToBlob(dataUrl);
+      const filename = `future-times-${dateInfo.year}.png`;
+
+      if (isMobile() && navigator.share && navigator.canShare) {
+        const file = new File([blob], filename, { type: "image/png" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: "Future Times" });
+        } else {
+          // Fallback: open blob in new tab
+          const objectUrl = URL.createObjectURL(blob);
+          window.open(objectUrl, "_blank");
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+        }
+      } else {
+        // Desktop: anchor download
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.download = filename;
+        link.href = objectUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+      }
     } catch {
       /* download failed */
     } finally {
