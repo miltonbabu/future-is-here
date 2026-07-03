@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CapsuleForm from "@/components/CapsuleForm";
 import Newspaper from "@/components/Newspaper";
+import LoadingSequence from "@/components/LoadingSequence";
 import type { ArticleData, CapsuleInput, Language } from "@/lib/types";
 import { saveCapsule, getAllCapsules, type SavedCapsule } from "@/lib/storage";
 
@@ -298,6 +299,10 @@ export default function FormPage() {
     setView("result");
   };
 
+  if (view === "loading") {
+    return <LoadingSequence language={language} />;
+  }
+
   if (view === "result" && article && lastInput) {
     return (
       <Newspaper
@@ -336,7 +341,7 @@ export default function FormPage() {
       <CapsuleForm
         onGenerate={handleGenerate}
         onPhotoChange={setPhotoUrl}
-        loading={view === "loading"}
+        loading={false}
         errorMsg={errorMsg}
         language={language}
         onLanguageChange={setLanguage}

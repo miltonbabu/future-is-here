@@ -306,9 +306,9 @@ export default function CapsuleForm({
 
   return (
     <main
-      className={`min-h-screen flex items-center justify-center p-4 sm:p-6 ${bodyFont} paper-grain`}
+      className={`min-h-screen flex items-center justify-center p-3 sm:p-6 ${bodyFont} paper-grain`}
     >
-      <div className="w-full max-w-xl bg-paper border-2 border-ink p-6 sm:p-10">
+      <div className="w-full max-w-xl bg-paper border-2 border-ink p-4 sm:p-10">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
             <button
@@ -338,7 +338,7 @@ export default function CapsuleForm({
             {t(language, "volInfo")} · {t(language, "price")}
           </p>
           <h1
-            className={`h-headline ${headlineFont} text-4xl sm:text-5xl text-ink tracking-tight leading-[1.05]`}
+            className={`h-headline ${headlineFont} text-2xl sm:text-5xl text-ink tracking-tight leading-[1.05]`}
           >
             {t(language, "title")}
           </h1>

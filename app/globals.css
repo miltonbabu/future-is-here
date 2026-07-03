@@ -108,12 +108,19 @@ body {
 /* Drop cap for first paragraph — large Special Elite initial */
 .drop-cap::first-letter {
   float: left;
-  font-size: 4.2rem;
+  font-size: 3.2rem;
   line-height: 0.82;
   padding: 0.05em 0.1em 0 0;
   font-weight: 400;
   font-family: "Special Elite", "Courier New", "Noto Serif SC", monospace;
   color: rgb(var(--accent));
+}
+
+/* Mobile: smaller drop cap to avoid layout break */
+@media (max-width: 640px) {
+  .drop-cap::first-letter {
+    font-size: 2.6rem;
+  }
 }
 
 /* Polaroid-style photo frame — classic instant-camera look:
@@ -122,13 +129,19 @@ body {
    and landscape uploads both display without cropping. CSS filter only. */
 .polaroid-frame {
   display: inline-block;
-  padding: 10px 10px 36px;
+  padding: 8px 8px 28px;
   background: #f4ead5;
   border: 1px solid rgba(0, 0, 0, 0.15);
   transform: rotate(-2deg);
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.12),
     0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+@media (min-width: 640px) {
+  .polaroid-frame {
+    padding: 10px 10px 36px;
+  }
 }
 
 /* Subtle paper texture for page background (no neon, no scanlines) */
@@ -159,6 +172,70 @@ body {
   text-align: justify;
   hyphens: auto;
   -webkit-hyphens: auto;
+}
+
+/* ── Year-based futuristic newspaper accents ── */
+
+/* Far-future (2041+): subtle geometric border and sci-fi masthead tweaks */
+[data-year="far"] .newspaper-paper {
+  position: relative;
+}
+
+/* Subtle corner accent — small clipped geometric notch */
+[data-year="far"] .newspaper-paper::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  background: rgb(var(--accent));
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+  opacity: 0.5;
+}
+
+[data-year="far"] .newspaper-paper::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  background: rgb(var(--accent));
+  clip-path: polygon(0 100%, 100% 100%, 0 0);
+  opacity: 0.5;
+}
+
+/* Far-future: slightly wider letter-spacing on masthead for a "datasheet" vibe */
+[data-year="far"] .masthead-rule h2 {
+  letter-spacing: 0.06em;
+}
+
+/* Mid-future (2031-2040): subtle ink-blue tint on key lines */
+[data-year="mid"] .h-rule {
+  border-top-color: rgba(var(--ink), 0.4);
+  border-bottom-color: rgba(var(--ink), 0.4);
+}
+
+[data-year="mid"] .masthead-rule {
+  border-bottom-width: 2px;
+}
+
+/* ── Mobile responsive overrides ── */
+
+/* Prevent huge masthead text from breaking layout on very small screens */
+@media (max-width: 400px) {
+  /* Cram newspaper masthead text */
+  .newspaper-paper header h2,
+  .newspaper-paper h1[class*="text-5xl"],
+  .newspaper-paper h1[class*="text-3xl"] {
+    font-size: 1.65rem !important;
+    letter-spacing: 0.02em;
+  }
+  .newspaper-paper h2[class*="text-5xl"],
+  .newspaper-paper h2[class*="text-3xl"] {
+    font-size: 1.5rem !important;
+  }
 }
 
 @keyframes spin-ink {

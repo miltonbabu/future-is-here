@@ -57,7 +57,7 @@ export default function Landing({
             {t(language, "landingEyebrow")}
           </p>
           <h1
-            className={`${headlineFont} landing-headline text-4xl sm:text-6xl text-ink`}
+            className={`${headlineFont} landing-headline text-2xl xs:text-3xl sm:text-6xl text-ink leading-none`}
           >
             {t(language, "masthead")}
           </h1>
@@ -69,14 +69,14 @@ export default function Landing({
         </header>
 
         {/* Lead story */}
-        <section className="py-5 sm:py-8">
+        <section className="py-4 sm:py-8">
           <h2
-            className={`${headlineFont} landing-headline text-2xl sm:text-4xl text-center text-ink leading-[1.1] mb-4`}
+            className={`${headlineFont} landing-headline text-xl sm:text-4xl text-center text-ink leading-[1.1] mb-4`}
           >
             {t(language, "landingHeadline")}
           </h2>
           <p
-            className={`${bodyFont} text-ink/85 text-base sm:text-lg text-center max-w-2xl mx-auto leading-relaxed`}
+            className={`${bodyFont} text-ink/85 text-sm sm:text-lg text-center max-w-2xl mx-auto leading-relaxed`}
           >
             {t(language, "landingBody")}
           </p>
@@ -85,17 +85,18 @@ export default function Landing({
         <hr className="h-rule" />
 
         {/* QR + CTA — moved up, prominent */}
-        <section className="py-5 sm:py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10 mb-6">
+        <section className="py-4 sm:py-8">
+          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-10 mb-6">
             {/* QR Code */}
             <div className="text-center">
               <div className="border-2 border-ink p-2 bg-white">
                 <QRCodeSVG
                   value={qrValue}
-                  size={150}
+                  size={120}
                   bgColor="#ffffff"
                   fgColor="#1a1a1a"
                   level="L"
+                  className="w-[100px] h-[100px] sm:w-[150px] sm:h-[150px]"
                 />
               </div>
               <p className={`landing-label text-[10px] text-accent mt-2 ${labelFont}`}>
@@ -108,7 +109,7 @@ export default function Landing({
               <button
                 type="button"
                 onClick={onEnter}
-                className={`${headlineFont} landing-headline text-2xl sm:text-3xl px-10 sm:px-14 py-4 border-2 border-ink text-ink hover:bg-ink hover:text-paper transition-colors`}
+                className={`${headlineFont} landing-headline text-xl sm:text-3xl px-8 sm:px-14 py-3 sm:py-4 border-2 border-ink text-ink hover:bg-ink hover:text-paper transition-colors whitespace-nowrap`}
               >
                 {t(language, "landingCta")}
               </button>

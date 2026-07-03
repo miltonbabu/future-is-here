@@ -195,17 +195,17 @@ export default function Newspaper({
       data-year={bucket}
     >
       {/* ── Share mode selector ── */}
-      <div className="max-w-3xl mx-auto mb-4 flex items-center gap-3 flex-wrap">
-        <span className="h-label text-[10px] sm:text-xs text-ink/70">
+      <div className="max-w-3xl mx-auto mb-4 flex flex-col xs:flex-row items-start xs:items-center gap-2 flex-wrap">
+        <span className="h-label text-[10px] sm:text-xs text-ink/70 flex-shrink-0">
           {t(language, "shareMode")}
         </span>
-        <div className="flex border-2 border-ink overflow-hidden">
+        <div className="flex border-2 border-ink overflow-hidden flex-shrink-0">
           {modeButtons.map(({ key, label }) => (
             <button
               key={key}
               type="button"
               onClick={() => setShareMode(key)}
-              className={`text-xs px-3 py-1.5 transition-colors ${bodyFont} ${
+              className={`text-[10px] xs:text-xs px-2 xs:px-3 py-1.5 transition-colors ${bodyFont} ${
                 shareMode === key
                   ? "bg-ink text-paper"
                   : "bg-paper text-ink hover:bg-ink/10"
@@ -220,7 +220,7 @@ export default function Newspaper({
       {/* ── Rendered content area (captured for download) ── */}
       <div ref={articleRef as React.RefObject<HTMLDivElement>}>
         {shareMode === "newspaper" && (
-          <article className="max-w-3xl mx-auto newspaper-paper border-2 border-ink p-5 sm:p-10">
+          <article className="max-w-3xl mx-auto newspaper-paper border-2 border-ink p-4 sm:px-8 sm:py-10">
             <div className="flex items-center justify-between text-ink/70 mb-2">
               <span className="h-label text-[9px] sm:text-[10px]">
                 {language === "zh" ? "头版 · A1" : "Front Page · A1"}
@@ -234,7 +234,7 @@ export default function Newspaper({
                 {t(language, "volInfo")} · {t(language, "price")}
               </p>
               <h2
-                className={`h-headline ${headlineFont} text-5xl sm:text-7xl text-ink mt-1`}
+                className={`h-headline ${headlineFont} text-3xl sm:text-6xl lg:text-7xl text-ink mt-1 leading-none`}
               >
                 {t(language, "masthead")}
               </h2>
@@ -257,7 +257,7 @@ export default function Newspaper({
               )}
               <div className="flex-1 text-center sm:text-left">
                 <h1
-                  className={`h-headline ${headlineFont} text-3xl sm:text-5xl text-ink leading-[1.08]`}
+                  className={`h-headline ${headlineFont} text-2xl sm:text-4xl lg:text-5xl text-ink leading-[1.08]`}
                 >
                   {article.headline}
                 </h1>
@@ -287,9 +287,9 @@ export default function Newspaper({
               <p className="mb-3">{article.paragraph3}</p>
             </div>
             <hr className="h-rule my-6" />
-            <blockquote className="py-6 text-center">
+            <blockquote className="py-4 sm:py-6 text-center">
               <p
-                className={`h-headline ${headlineFont} italic text-xl sm:text-2xl leading-snug text-ink`}
+                className={`h-headline ${headlineFont} italic text-lg sm:text-2xl leading-snug text-ink`}
               >
                 <span className="text-3xl mr-1 text-accent">&ldquo;</span>
                 {article.future_quote}
@@ -312,13 +312,13 @@ export default function Newspaper({
         )}
 
         {shareMode === "moments" && (
-          <article className="max-w-md mx-auto newspaper-paper border-2 border-ink p-5 sm:p-6">
+          <article className="max-w-md mx-auto newspaper-paper border-2 border-ink p-4 sm:p-6">
             <header className="text-center masthead-rule pb-3 mb-4">
               <p className="h-label text-[9px] text-accent">
                 {t(language, "landingEyebrow")}
               </p>
               <h2
-                className={`h-headline ${headlineFont} text-3xl sm:text-4xl text-ink mt-1`}
+                className={`h-headline ${headlineFont} text-2xl sm:text-4xl text-ink mt-1 leading-none`}
               >
                 {t(language, "masthead")}
               </h2>
@@ -326,22 +326,22 @@ export default function Newspaper({
                 {dateInfo.long}
               </p>
             </header>
-            <div className="flex gap-4 items-start mb-4">
+            <div className="flex gap-3 sm:gap-4 items-start mb-4">
               {photoUrl && (
                 <div className="flex-shrink-0">
                   <div className="border border-ink p-0.5 bg-[#f4ead5]">
                     <img
                       src={photoUrl}
                       alt={name}
-                      className="block w-20 h-20 object-cover"
+                      className="block w-16 h-16 sm:w-20 sm:h-20 object-cover"
                       style={{ filter: PHOTO_FILTER }}
                     />
                   </div>
                 </div>
               )}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <h3
-                  className={`h-headline ${headlineFont} text-xl sm:text-2xl text-ink leading-tight`}
+                  className={`h-headline ${headlineFont} text-lg sm:text-2xl text-ink leading-tight`}
                 >
                   {article.headline}
                 </h3>
@@ -387,13 +387,13 @@ export default function Newspaper({
         )}
 
         {shareMode === "card" && (
-          <article className="max-w-sm mx-auto newspaper-paper border-2 border-ink p-5 sm:p-6 text-center">
+          <article className="max-w-sm mx-auto newspaper-paper border-2 border-ink p-4 sm:p-6 text-center">
             <header className="masthead-rule pb-3 mb-4">
               <p className="h-label text-[9px] text-accent">
                 {t(language, "landingEyebrow")}
               </p>
               <h2
-                className={`h-headline ${headlineFont} text-3xl text-ink mt-1`}
+                className={`h-headline ${headlineFont} text-2xl sm:text-3xl text-ink mt-1 leading-none`}
               >
                 {t(language, "masthead")}
               </h2>
@@ -404,7 +404,7 @@ export default function Newspaper({
                   <img
                     src={photoUrl}
                     alt={name}
-                    className="block w-36 h-36 object-cover"
+                    className="block w-28 h-28 sm:w-36 sm:h-36 object-cover"
                     style={{ filter: PHOTO_FILTER }}
                   />
                   <figcaption className="text-center text-ink/80 text-xs italic h-body mt-2">
@@ -414,7 +414,7 @@ export default function Newspaper({
               </div>
             )}
             <h3
-              className={`h-headline ${headlineFont} text-2xl sm:text-3xl text-ink leading-tight mb-3`}
+              className={`h-headline ${headlineFont} text-xl sm:text-3xl text-ink leading-tight mb-3`}
             >
               {article.headline}
             </h3>
@@ -443,27 +443,28 @@ export default function Newspaper({
       </div>
 
       {/* ── Action bar ── */}
-      <div className="max-w-3xl mx-auto mt-4">
-        <div className="border-t-4 border-double border-ink pt-6 flex flex-col sm:flex-row items-center gap-6 justify-between">
-          <div className="flex items-center gap-4">
-            <div className="border-2 border-ink p-1 bg-[#f4ead5]">
+      <div className="max-w-3xl mx-auto mt-4 px-2 sm:px-0">
+        <div className="border-t-4 border-double border-ink pt-4 sm:pt-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="border-2 border-ink p-1 bg-[#f4ead5] flex-shrink-0">
               <QRCodeSVG
                 value={
                   shareUrl && shareUrl.length <= 300
                     ? shareUrl
                     : `${typeof window !== "undefined" ? window.location.origin : ""}`
                 }
-                size={96}
+                size={80}
                 bgColor="#f4ead5"
                 fgColor="#1a1a1a"
                 level="L"
+                className="w-[72px] h-[72px] sm:w-[96px] sm:h-[96px]"
               />
             </div>
             <div>
-              <p className={`h-headline ${headlineFont} text-sm text-ink`}>
+              <p className={`h-headline ${headlineFont} text-xs sm:text-sm text-ink`}>
                 {t(language, "scanTitle")}
               </p>
-              <p className="text-xs text-ink/70 max-w-[12rem] italic">
+              <p className="text-[10px] sm:text-xs text-ink/70 max-w-[10rem] sm:max-w-[12rem] italic">
                 {t(language, "scanDesc").replace("{year}", dateInfo.year)}
               </p>
             </div>
