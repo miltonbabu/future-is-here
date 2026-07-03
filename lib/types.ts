@@ -18,6 +18,4 @@ export interface CapsuleInput {
   language: Language;
   /** Achievement category id — drives the pre-built fallback flavor. */
   category: string;
-  /** Opt-in AI image generation (costs GLM credits) — OFF by default. */
-  useAI: boolean;
 }

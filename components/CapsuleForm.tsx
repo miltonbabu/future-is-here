@@ -239,7 +239,6 @@ export default function CapsuleForm({
   const [chips, setChips] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [futureDate, setFutureDate] = useState("2032-07-01");
-  const [useAI, setUseAI] = useState(false);
 
   // Populate chips on the client only — rollChips() uses Math.random(), which
   // would produce different output on the server vs client and trigger a
@@ -295,7 +294,6 @@ export default function CapsuleForm({
         futureDate,
         language,
         category: activeCategory,
-        useAI,
       },
       photoUrl,
     );
@@ -566,23 +564,6 @@ export default function CapsuleForm({
               {errorMsg}
             </p>
           )}
-
-          {/* AI image toggle — OFF by default to save GLM credits */}
-          <label
-            className={`flex items-center gap-2 cursor-pointer select-none ${bodyFont}`}
-          >
-            <input
-              type="checkbox"
-              checked={useAI}
-              onChange={(e) => setUseAI(e.target.checked)}
-              className="w-4 h-4 accent-accent border-2 border-ink/40"
-            />
-            <span className="text-xs text-ink/70">
-              {language === "zh"
-                ? "生成 AI 插图（免费）"
-                : "Generate AI illustration (free)"}
-            </span>
-          </label>
 
           <button
             type="submit"

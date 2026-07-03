@@ -295,7 +295,6 @@ export async function POST(req: Request) {
       futureDate,
       language: lang,
       category,
-      useAI: false,
     };
 
     // ── Cache check (skip duplicate GLM calls for same input) ──
