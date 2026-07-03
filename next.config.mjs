@@ -33,7 +33,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",
               "font-src 'self' https://fonts.gstatic.com https://vercel.live",
-              "connect-src 'self' https:", // allow fetch to any HTTPS (GLM, CogView watermark, image download conversion)
+              "connect-src 'self' https: wss:", // allow fetch + WebSocket to any origin (GLM, CogView, Pusher, image download)
               "frame-src https://vercel.live",
               "frame-ancestors 'none'",
               "base-uri 'self'",

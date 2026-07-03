@@ -5,9 +5,9 @@ export const maxDuration = 10;
 
 const GLM_IMAGE_ENDPOINT =
   "https://open.bigmodel.cn/api/paas/v4/images/generations";
-// CogView-3-Plus typically takes 6-8s. 8.5s timeout leaves 1.5s buffer
-// for Vercel's 10s function limit.
-const TIMEOUT_MS = 8_500;
+// CogView-3-Plus typically takes 6-8s, occasionally up to 9s.
+// Vercel hobby plan has a 10s hard limit — we use 9.5s to maximize chance.
+const TIMEOUT_MS = 9_500;
 
 // Rate limit: 10 image generations per minute per IP
 const RATE_LIMIT = 10;
