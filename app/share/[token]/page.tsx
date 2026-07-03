@@ -14,6 +14,16 @@ interface SharedNewspaper {
   language: Language;
 }
 
+function decodeHash(hash: string): SharedNewspaper | null {
+  try {
+    const utf8 = atob(hash);
+    const json = decodeURIComponent(utf8);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export default function SharePage({
   params,
 }: {
@@ -24,11 +34,26 @@ export default function SharePage({
   const [language, setLanguage] = useState<Language>("en");
 
   useEffect(() => {
+    // 1) Try the self-contained URL hash first — no server lookup needed
+    const hash = window.location.hash.slice(1);
+    if (hash) {
+      const decoded = decodeHash(hash);
+      if (decoded) {
+        setData(decoded);
+        setLanguage(decoded.language || "en");
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 2) Fallback: fetch from the API (backward compatibility / Redis)
     fetch(`/api/share/${params.token}`)
       .then((res) => res.json())
       .then((result) => {
-        setData(result);
-        setLanguage(result.language || "en");
+        if (result && result.article) {
+          setData(result);
+          setLanguage(result.language || "en");
+        }
         setLoading(false);
       })
       .catch(() => {

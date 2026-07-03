@@ -226,6 +226,10 @@ export default function FormPage() {
         language: input.language,
       };
 
+      // Always encode data in the URL hash so the share page is self-contained.
+      // The API-backed token is a bonus (for short URLs / QR codes), but the hash
+      // guarantees the share always works even if server storage is unavailable.
+      const hash = encode(shared);
       let url = "";
       try {
         const res = await fetch("/api/share", {
@@ -235,20 +239,15 @@ export default function FormPage() {
         });
         const result = await res.json();
         if (result.token) {
-          url = `${window.location.origin}/share/${result.token}`;
+          url = `${window.location.origin}/share/${result.token}#${hash}`;
         }
       } catch {}
 
       if (!url) {
-        const hash = encode(shared);
         url = `${window.location.origin}/#${hash}`;
       }
 
-      window.history.replaceState(
-        null,
-        "",
-        url.includes("/share/") ? url : `/#${encode(shared)}`,
-      );
+      window.history.replaceState(null, "", url);
       setShareUrl(url);
 
       saveCapsule({
