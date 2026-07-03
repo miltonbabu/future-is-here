@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/security";
 
 export const maxDuration = 10;
 
@@ -8,7 +9,24 @@ const GLM_IMAGE_ENDPOINT =
 // for Vercel's 10s function limit.
 const TIMEOUT_MS = 8_500;
 
+// Rate limit: 10 image generations per minute per IP
+const RATE_LIMIT = 10;
+const RATE_WINDOW = 60_000;
+
 export async function POST(req: Request) {
+  // ── Rate limit ──
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+  const { allowed } = checkRateLimit(`img:${ip}`, RATE_LIMIT, RATE_WINDOW);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait." },
+      { status: 429 },
+    );
+  }
+
   let prompt: string;
   try {
     const body = await req.json();
@@ -24,13 +42,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
   }
 
+  // Sanitize prompt — strip control characters, limit length
+  const sanitizedPrompt = prompt
+    .replace(/[\x00-\x1f\x7f]/g, "")
+    .trim()
+    .slice(0, 200);
+
+  if (!sanitizedPrompt) {
+    return NextResponse.json({ error: "prompt is required" }, { status: 400 });
+  }
+
   const glmKey = process.env.GLM_API_KEY;
   if (!glmKey) {
     return NextResponse.json({ src: null, provider: "none" });
   }
 
-  // Single GLM attempt — no model loop, no OpenAI fallback.
-  // Both waste precious seconds and cause Vercel timeout.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -43,7 +69,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         model: "cogview-3-plus",
-        prompt,
+        prompt: sanitizedPrompt,
         n: 1,
         size: "1024x1024",
       }),

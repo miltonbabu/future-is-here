@@ -34,52 +34,23 @@ function decode(hash: string): SharedNewspaper | null {
   }
 }
 
-async function generateImageClientSide(prompt: string): Promise<string | null> {
-  const glmKey = process.env.NEXT_PUBLIC_GLM_API_KEY;
-  if (!glmKey) return null;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30_000);
-
+/** Generate image through the server API route (keeps API key secure). */
+async function generateImageServerSide(prompt: string): Promise<string | null> {
   try {
-    const res = await fetch(
-      "https://open.bigmodel.cn/api/paas/v4/images/generations",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${glmKey.trim()}`,
-        },
-        body: JSON.stringify({
-          model: "cogview-3-plus",
-          prompt,
-          n: 1,
-          size: "1024x1024",
-        }),
-        signal: controller.signal,
-      },
-    );
+    const res = await fetch("/api/generate-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
 
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      console.warn(
-        `[cogview] HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 120)}`,
-      );
-      return null;
-    }
-
+    if (!res.ok) return null;
     const data = await res.json();
-    const imgUrl: string | undefined = data?.data?.[0]?.url;
-    if (!imgUrl)
-      console.warn(
-        "[cogview] No image URL in response:",
-        JSON.stringify(data).slice(0, 200),
-      );
-    return imgUrl || null;
+    return data?.src || null;
   } catch (err) {
-    clearTimeout(timer);
-    console.warn("[cogview] Error:", err instanceof Error ? err.message : err);
+    console.warn(
+      "[generate-image] Error:",
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }
@@ -210,8 +181,8 @@ export default function FormPage() {
           articleData.article.image_prompt,
           year,
         );
-        console.log("[image] CogView prompt:", illustrationPrompt);
-        resolvedImageUrl = await generateImageClientSide(illustrationPrompt);
+        console.log("[image] Image prompt:", illustrationPrompt);
+        resolvedImageUrl = await generateImageServerSide(illustrationPrompt);
       } catch {}
 
       setArticle(articleData.article);
