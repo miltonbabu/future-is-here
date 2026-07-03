@@ -81,23 +81,31 @@ export default function Newspaper({
     if (!articleRef.current) return;
     setDownloading(true);
     try {
-      const node = articleRef.current;
+      const wrapper = articleRef.current;
 
-      // Convert external images to same-origin data URLs so html-to-image can capture them
-      const imgs = node.querySelectorAll<HTMLImageElement>("img");
-      const restoreList: Array<{ img: HTMLImageElement; src: string }> = [];
+      // Find the actual rendered <article> element (not the wrapper div).
+      // Capturing the article directly avoids full-viewport canvas + empty space.
+      const articleEl = wrapper.querySelector("article");
+      if (!articleEl) {
+        setDownloading(false);
+        return;
+      }
+
+      // ── 1. Convert external <img> sources to same-origin data URLs ──
+      const imgs = articleEl.querySelectorAll<HTMLImageElement>("img");
+      const restoreImgs: Array<{ img: HTMLImageElement; src: string }> = [];
       for (const img of imgs) {
         if (img.src.startsWith("http://") || img.src.startsWith("https://")) {
           try {
             const resp = await fetch(img.src);
             const imgBlob = await resp.blob();
-            const reader = new FileReader();
             const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
               reader.onloadend = () => resolve(reader.result as string);
               reader.onerror = reject;
               reader.readAsDataURL(imgBlob);
             });
-            restoreList.push({ img, src: img.src });
+            restoreImgs.push({ img, src: img.src });
             img.src = dataUrl;
           } catch {
             /* skip images that fail to fetch */
@@ -105,22 +113,44 @@ export default function Newspaper({
         }
       }
 
-      // Determine pixel ratio based on device capability
-      const pixelRatio = isMobile() ? 1 : 2;
+      // ── 2. Replace cross-origin newspaper-paper background with solid color ──
+      //    (cream-paper.png from transparenttextures.com taints the canvas)
+      const origBgImage = articleEl.style.backgroundImage;
+      const origBgColor = articleEl.style.backgroundColor;
+      articleEl.style.backgroundImage = "none";
+      articleEl.style.backgroundColor = "#f4ead5";
 
-      const dataUrl = await toPng(node, {
+      // ── 3. Disable CSS multi-column — html-to-image SVG foreignObject ──
+      //    cannot render column-count, causing newspaper mode to fail.
+      const columnEls = articleEl.querySelectorAll<HTMLElement>(
+        "[class*='columns-']",
+      );
+      const restoreColumns: Array<{ el: HTMLElement; val: string }> = [];
+      for (const el of columnEls) {
+        restoreColumns.push({ el, val: el.style.columnCount });
+        el.style.columnCount = "1";
+      }
+
+      // ── 4. Capture ──
+      const pixelRatio = isMobile() ? 1 : 2;
+      const dataUrl = await toPng(articleEl, {
         quality: 0.95,
         pixelRatio,
         backgroundColor: "#f4ead5",
         skipFonts: true,
       });
 
-      // Restore original image sources
-      for (const { img, src } of restoreList) {
+      // ── 5. Restore all overrides ──
+      articleEl.style.backgroundImage = origBgImage;
+      articleEl.style.backgroundColor = origBgColor;
+      for (const { el, val } of restoreColumns) {
+        el.style.columnCount = val;
+      }
+      for (const { img, src } of restoreImgs) {
         img.src = src;
       }
 
-      // Convert data URL to Blob directly (avoids fetch() quirks on mobile)
+      // ── 6. Download ──
       const blob = dataUrlToBlob(dataUrl);
       const filename = `future-times-${dateInfo.year}.png`;
 
@@ -129,13 +159,11 @@ export default function Newspaper({
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: "Future Times" });
         } else {
-          // Fallback: open blob in new tab
           const objectUrl = URL.createObjectURL(blob);
           window.open(objectUrl, "_blank");
           setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
         }
       } else {
-        // Desktop: anchor download
         const objectUrl = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.download = filename;
@@ -145,8 +173,8 @@ export default function Newspaper({
         document.body.removeChild(link);
         URL.revokeObjectURL(objectUrl);
       }
-    } catch {
-      /* download failed */
+    } catch (err) {
+      console.error("[download] failed:", err);
     } finally {
       setDownloading(false);
     }
