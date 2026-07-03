@@ -19,7 +19,7 @@
 
 - Next.js 16.2.9 (App Router, Turbopack) + React 19.2 + TypeScript 5.5
 - Tailwind CSS 3.4 + Google Fonts (Special Elite, Courier Prime, Libre Caslon Display, Lora, Noto Serif SC, ZCOOL KuHei)
-- Zhipu GLM-4-Flash (article + achievements, server-side) + CogView-3-Plus (image, **client-side**)
+- Zhipu GLM-4-Flash (article + achievements, server-side) + CogView-3-Flash (image, free, **server-side**)
 - `qrcode.react` 4.2 for QR codes
 - **Upstash Redis** (production) / File-based JSON (local dev) for server-side share storage
 - `@upstash/redis` for persistent, cross-instance share token storage
@@ -43,10 +43,10 @@
 ### Phase 2: Core AI Generation ✅
 1. `app/api/generate-article/route.ts` — GLM-4-Flash (primary) → pre-built templates (fallback). Environment-aware timeout: 5s on Vercel, 30s self-hosted. No OpenAI (times out from China).
 2. `app/api/generate-achievement/route.ts` — GLM generates 3 funny achievements by category + language. Falls back to pre-defined pool.
-3. `app/api/generate-image/route.ts` — server-side image generation fallback (GLM CogView-3-Plus → CogView-3). Rarely used now — images primarily generated client-side (see #4 below). Returns `null` on failure (no SVG fallback).
-4. `app/form/page.tsx` — **client-side image generation** via `generateImageClientSide()` — browser calls GLM CogView-3-Plus directly with 30s timeout, bypassing Vercel's 10s function limit. Uses `NEXT_PUBLIC_GLM_API_KEY`.
+3. `app/api/generate-image/route.ts` — server-side image generation via free CogView-3-Flash (~3-5s). Always runs — no opt-in needed. Article response cached for 5 min to avoid duplicate calls.
+4. `app/form/page.tsx` — **server-side image generation** via `/api/generate-image` — uses free `cogview-3-flash` model. No client-side API key exposure.
 5. `components/CapsuleForm.tsx` — form with photo upload (camera + gallery), photo compression (400×500px JPEG @ 0.7), 4 achievement categories + roast pool, "Surprise Me" button (AI-powered), language toggle with sync
-6. `handleGenerate()` flow: article API → client-side image → share token → localStorage + DB → show newspaper
+6. `handleGenerate()` flow: article API → server-side image → share token → localStorage + DB → show newspaper
 
 ### Phase 3: Polish & Share ✅
 1. `app/api/share/route.ts` + `app/api/share/[token]/route.ts` — server-side share tokens (9-char), Next.js 16 async params (`Promise<{ token: string }>`). **Upstash Redis** for production storage (30-day TTL, auto-detected via env vars). File-based JSON fallback for local dev. **Image persistence:** POST downloads CogView illustration URL → converts to base64 before storing → shared newspapers never lose their illustration.
@@ -70,11 +70,11 @@ future-time-capsule/
 │   │   ├── capsules/route.ts            # CRUD persistence (GET/POST/DELETE)
 │   │   ├── generate-achievement/route.ts # AI achievement suggestions (GLM)
 │   │   ├── generate-article/route.ts    # Article gen (GLM → fallback templates)
-│   │   ├── generate-image/route.ts      # Server-side image fallback (rarely used)
+│   │   ├── generate-image/route.ts      # Image generation (free CogView-3-Flash)
 │   │   └── share/
 │   │       ├── route.ts                 # POST creates share token (Redis/file)
 │   │       └── [token]/route.ts         # GET retrieves newspaper by token
-│   ├── form/page.tsx                    # Form + client-side image gen + archive
+│   ├── form/page.tsx                    # Form + image gen + archive
 │   ├── share/[token]/page.tsx           # Shared newspaper view
 │   ├── globals.css                      # All styles, textures, fonts
 │   ├── layout.tsx                       # Root layout, Google Fonts
@@ -103,17 +103,19 @@ future-time-capsule/
 
 1. **Framework = Next.js 16 App Router.** Routes: `/` (landing + shared), `/form` (form + generation), `/share/<token>` (shared view).
 2. **GLM first, no OpenAI for articles.** GLM is accessible in China; OpenAI times out. Removed OpenAI fallback entirely.
-3. **Client-side image generation.** CogView takes 10-15s, exceeding Vercel's 10s limit. Browser fetches GLM directly (30s timeout) using `NEXT_PUBLIC_GLM_API_KEY`.
+3. **Server-side image generation with free model.** Switched from paid CogView-3-Plus to free CogView-3-Flash (~3-5s). Always runs automatically. Server-side API route — no client-side API key exposure.
 4. **No SVG fallback for images.** If image generation fails, newspaper shows without illustration — no empty slot.
 5. **Server-side share tokens with Upstash Redis.** `/share/abc123xyz` URLs store full newspaper (article + images as base64) in Redis. 30-day TTL. Auto-falls back to file-based JSON in local dev.
 6. **AI illustration persisted as base64.** When saving a share, the server downloads the CogView image URL and converts to base64. Shared newspapers never lose their illustration — CogView URLs expire, base64 data URLs don't.
 7. **Photo compression.** 400×500px JPEG @ 0.7 (~50-100KB) via canvas. Prevents localStorage overflow.
-8. **File-based JSON for local dev, Upstash Redis for production.** No native compilation. Redis auto-detected via env vars.
-9. **Environment-aware timeouts.** 5s on Vercel (10s function limit), 30s self-hosted (no limit).
-10. **Next.js 16 async params.** Route handler `params` are `Promise<{}>`, must be awaited.
-11. **Hydration-safe QR codes.** Compute `window.location.origin` in `useEffect`, not during render.
-12. **Separate font systems.** Landing: serif (Caslon/Lora). Newspaper: typewriter (Special Elite/Courier Prime).
-13. **Local network access.** `-H 0.0.0.0` in both `dev` and `start` scripts.
+8. **Article response cache.** 5-min TTL LRU cache (max 100 entries) prevents duplicate GLM API calls for identical inputs.
+9. **System prompt shortened ~50%.** Reduces token cost per article generation call.
+10. **File-based JSON for local dev, Upstash Redis for production.** No native compilation. Redis auto-detected via env vars.
+11. **Environment-aware timeouts.** 5s on Vercel (10s function limit), 30s self-hosted (no limit).
+12. **Next.js 16 async params.** Route handler `params` are `Promise<{}>`, must be awaited.
+13. **Hydration-safe QR codes.** Compute `window.location.origin` in `useEffect`, not during render.
+14. **Separate font systems.** Landing: serif (Caslon/Lora). Newspaper: typewriter (Special Elite/Courier Prime).
+15. **Local network access.** `-H 0.0.0.0` in both `dev` and `start` scripts.
 
 ---
 
@@ -121,9 +123,7 @@ future-time-capsule/
 
 | Variable | Required | Description |
 |---|---|---|
-| `GLM_API_KEY` | Yes | Zhipu GLM API key (server-side: article + achievements) |
-| `NEXT_PUBLIC_GLM_API_KEY` | Yes | Same key, exposed to client for browser-side image generation |
-| `OPENAI_API_KEY` | No | Optional, rarely used |
+| `GLM_API_KEY` | Yes | Zhipu GLM API key (server-side: article + image + achievements). Image gen uses free CogView-3-Flash. |
 | `UPSTASH_REDIS_REST_URL` | Prod only | Upstash Redis REST URL — auto-set by Vercel. Falls back to file JSON without it. |
 | `UPSTASH_REDIS_REST_TOKEN` | Prod only | Upstash Redis REST token — auto-set by Vercel. |
 

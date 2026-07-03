@@ -19,7 +19,7 @@
 
 - Next.js 16.2.9（App Router, Turbopack）+ React 19.2 + TypeScript 5.5
 - Tailwind CSS 3.4 + Google Fonts（Special Elite, Courier Prime, Libre Caslon Display, Lora, Noto Serif SC, ZCOOL KuHei）
-- 智谱 GLM-4-Flash（文章 + 成就生成，服务端）+ CogView-3-Plus（图片生成，**客户端**）
+- 智谱 GLM-4-Flash（文章 + 成就生成，服务端）+ CogView-3-Flash（图片生成，免费，**服务端**）
 - `qrcode.react` 4.2 用于二维码
 - **Upstash Redis**（生产环境）/ 基于文件的 JSON（本地开发）用于服务端分享存储
 - `@upstash/redis` 用于跨实例持久化分享令牌存储
@@ -43,10 +43,10 @@
 ### 第二阶段：核心 AI 生成 ✅
 1. `app/api/generate-article/route.ts` — GLM-4-Flash（主要）→ 预置模板（备用）。环境感知超时：Vercel 上 5 秒，自托管 30 秒。不使用 OpenAI（在中国超时）。
 2. `app/api/generate-achievement/route.ts` — GLM 按分类 + 语言生成 3 个搞笑成就。失败时回退到预定义池。
-3. `app/api/generate-image/route.ts` — 服务端图片生成备用（GLM CogView-3-Plus → CogView-3）。现已很少使用 — 图片主要在客户端生成（见下文第 4 条）。失败时返回 `null`（无 SVG 回退）。
-4. `app/form/page.tsx` — **客户端图片生成** via `generateImageClientSide()` — 浏览器直接调用 GLM CogView-3-Plus，30 秒超时，绕过 Vercel 的 10 秒函数限制。使用 `NEXT_PUBLIC_GLM_API_KEY`。
+3. `app/api/generate-image/route.ts` — 服务端图片生成，使用免费 CogView-3-Flash（约 3-5 秒）。始终自动生成，无需手动选择。文章响应缓存 5 分钟避免重复调用。
+4. `app/form/page.tsx` — **服务端图片生成** via `/api/generate-image` — 使用免费 `cogview-3-flash` 模型。无客户端 API 密钥暴露。
 5. `components/CapsuleForm.tsx` — 表单含照片上传（相机 + 图库）、照片压缩（400×500px JPEG @ 0.7）、4 个成就分类 + 吐槽池、"惊喜一下"按钮（AI 驱动）、语言切换同步
-6. `handleGenerate()` 流程：文章 API → 客户端图片 → 分享令牌 → localStorage + 数据库 → 显示报纸
+6. `handleGenerate()` 流程：文章 API → 服务端图片 → 分享令牌 → localStorage + 数据库 → 显示报纸
 
 ### 第三阶段：优化与分享 ✅
 1. `app/api/share/route.ts` + `app/api/share/[token]/route.ts` — 服务端分享令牌（9 字符），Next.js 16 异步参数（`Promise<{ token: string }>`）。**Upstash Redis** 用于生产存储（30 天 TTL，通过环境变量自动检测）。本地开发回退到文件 JSON。**图片持久化：** POST 下载 CogView 插图 URL → 转为 base64 后存储 → 分享的报纸永远不会丢失插图。
@@ -70,7 +70,7 @@ future-time-capsule/
 │   │   ├── capsules/route.ts            # CRUD 持久化（GET/POST/DELETE）
 │   │   ├── generate-achievement/route.ts # AI 成就建议（GLM）
 │   │   ├── generate-article/route.ts    # 文章生成（GLM → 备用模板）
-│   │   ├── generate-image/route.ts      # 服务端图片备用（很少使用）
+│   │   ├── generate-image/route.ts      # 图片生成（免费 CogView-3-Flash）
 │   │   └── share/
 │   │       ├── route.ts                 # POST 创建分享令牌（Redis/文件）
 │   │       └── [token]/route.ts         # GET 按令牌获取报纸
@@ -103,17 +103,19 @@ future-time-capsule/
 
 1. **框架 = Next.js 16 App Router。** 路由：`/`（落地页 + 分享）、`/form`（表单 + 生成）、`/share/<token>`（分享视图）。
 2. **GLM 优先，文章不用 OpenAI。** GLM 在中国可访问；OpenAI 超时。已完全移除 OpenAI 回退。
-3. **客户端图片生成。** CogView 需要 10-15 秒，超过 Vercel 的 10 秒限制。浏览器直接请求 GLM（30 秒超时），使用 `NEXT_PUBLIC_GLM_API_KEY`。
+3. **服务端图片生成（免费模型）。** 从付费 CogView-3-Plus 切换到免费 CogView-3-Flash（约 3-5 秒）。始终自动生成。服务端 API 路由 — 无客户端 API 密钥暴露。
 4. **图片无 SVG 回退。** 如果图片生成失败，报纸不显示插图 — 没有空槽位。
 5. **服务端分享令牌 + Upstash Redis。** `/share/abc123xyz` URL 将完整报纸（文章 + base64 图片）存储在 Redis 中。30 天 TTL。本地开发自动回退到文件 JSON。
 6. **AI 插图持久化为 base64。** 保存分享时，服务端下载 CogView 图片 URL 并转为 base64。分享的报纸永远不会丢失插图 — CogView URL 会过期，base64 数据 URL 不会。
 7. **照片压缩。** 400×500px JPEG @ 0.7（约 50-100KB）通过 canvas 处理。防止 localStorage 溢出。
-8. **本地开发用文件 JSON，生产用 Upstash Redis。** 无原生编译。Redis 通过环境变量自动检测。
-9. **环境感知超时。** Vercel 上 5 秒（10 秒函数限制），自托管 30 秒（无限制）。
-10. **Next.js 16 异步参数。** 路由处理器的 `params` 是 `Promise<{}>`，必须 await。
-11. **水合安全的二维码。** 在 `useEffect` 中计算 `window.location.origin`，不在渲染期间计算。
-12. **独立字体系统。** 落地页：衬线体（Caslon/Lora）。报纸：打字机体（Special Elite/Courier Prime）。
-13. **局域网访问。** `dev` 和 `start` 脚本均使用 `-H 0.0.0.0`。
+8. **文章响应缓存。** 5 分钟 TTL LRU 缓存（最多 100 条）防止相同输入重复调用 GLM API。
+9. **系统提示词缩短约 50%。** 减少每次文章生成调用的 token 消耗。
+10. **本地开发用文件 JSON，生产用 Upstash Redis。** 无原生编译。Redis 通过环境变量自动检测。
+11. **环境感知超时。** Vercel 上 5 秒（10 秒函数限制），自托管 30 秒（无限制）。
+12. **Next.js 16 异步参数。** 路由处理器的 `params` 是 `Promise<{}>`，必须 await。
+13. **水合安全的二维码。** 在 `useEffect` 中计算 `window.location.origin`，不在渲染期间计算。
+14. **独立字体系统。** 落地页：衬线体（Caslon/Lora）。报纸：打字机体（Special Elite/Courier Prime）。
+15. **局域网访问。** `dev` 和 `start` 脚本均使用 `-H 0.0.0.0`。
 
 ---
 
@@ -121,9 +123,7 @@ future-time-capsule/
 
 | 变量 | 是否必需 | 说明 |
 |---|---|---|
-| `GLM_API_KEY` | 是 | 智谱 GLM API 密钥（服务端：文章 + 成就生成）|
-| `NEXT_PUBLIC_GLM_API_KEY` | 是 | 同一密钥，暴露给客户端用于浏览器端图片生成 |
-| `OPENAI_API_KEY` | 否 | 可选，很少使用 |
+| `GLM_API_KEY` | 是 | 智谱 GLM API 密钥（服务端：文章 + 图片 + 成就生成）。图片使用免费 CogView-3-Flash。|
 | `UPSTASH_REDIS_REST_URL` | 仅生产 | Upstash Redis REST URL — Vercel 自动设置。无则回退到文件 JSON。|
 | `UPSTASH_REDIS_REST_TOKEN` | 仅生产 | Upstash Redis REST 令牌 — Vercel 自动设置。|
 

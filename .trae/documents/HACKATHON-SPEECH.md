@@ -31,7 +31,7 @@ And we wanted it to feel real. Not a generic AI text dump. A **real newspaper** 
 
 3. **The Magic** — Hit generate. In the background:
    - **GLM-4-Flash** writes a full newspaper article — headline, three paragraphs, a first-person quote, and a reward line
-   - **CogView-3-Plus** generates a photorealistic illustration — no faces, just the scene, in sepia tones
+   - **CogView-3-Flash** (free) generates a photorealistic illustration — no faces, just the scene, in sepia tones
    - Your photo gets a polaroid frame with a vintage sepia filter
    - A share token is created server-side so anyone can view your newspaper via QR code
 
@@ -49,12 +49,12 @@ And we wanted it to feel real. Not a generic AI text dump. A **real newspaper** 
 - **Next.js 16** App Router with Turbopack — fast dev, production-ready
 - **React 19** + TypeScript for a type-safe, component-driven UI
 - **Tailwind CSS** for the vintage newspaper aesthetic
-- **Zhipu GLM** for all AI — article generation (GLM-4-Flash), image generation (CogView-3-Plus), and achievement suggestions (GLM-4-Flash)
+- **Zhipu GLM** for all AI — article generation (GLM-4-Flash), image generation (CogView-3-Flash, free), and achievement suggestions (GLM-4-Flash)
 
 ### The Hard Problems We Solved
 
-**1. Vercel's 10-second function limit kills AI image generation.**
-CogView-3-Plus takes 10-15 seconds to generate an image. Vercel's Hobby plan caps serverless functions at 10 seconds. So we moved image generation **client-side** — the browser calls GLM directly with a 30-second timeout. The server never times out. The user never waits for a 502 error.
+**1. Making image generation cost-effective.**
+Initially used paid CogView-3-Plus (~0.5 RMB/image). Switched to **free CogView-3-Flash** (~3-5s generation) — same endpoint, zero cost. Moved generation to server-side API route for security.
 
 **2. Sharing newspapers with images is hard.**
 Base64-encoded newspaper data in URL hashes exceeded QR code capacity. So we built server-side share tokens — a 9-character code that stores the full newspaper (article + images + metadata) in a JSON file. The QR code encodes a short URL. Anyone scanning sees the complete newspaper.
@@ -66,7 +66,7 @@ Full-resolution photos exceeded localStorage's 5MB limit. We compress photos to 
 If GLM is down, the newspaper still generates — with pre-built template articles (5 categories, bilingual). If image generation fails, the newspaper shows without an illustration (no empty slot, no broken image). The show always goes on.
 
 **5. It should work on your phone — without deploying.**
-We bound the dev and production servers to `0.0.0.0`. Run `npm start` on your PC, open `http://<your-PC-IP>:3000` on your phone (same WiFi), and generate newspapers from your couch. Both article and image generation work — the article runs server-side on your PC, the image generates client-side in your phone's browser.
+We bound the dev and production servers to `0.0.0.0`. Run `npm start` on your PC, open `http://<your-PC-IP>:3000` on your phone (same WiFi), and generate newspapers from your couch. Both article and image generation run server-side on your PC.
 
 **6. Bilingual from day one.**
 Every UI string, every achievement, every newspaper article, every AI prompt supports English and Chinese. Switching language re-rolls achievement suggestions in the new language. The newspaper even uses different fonts — Special Elite and Courier Prime for English, Noto Serif SC and ZCOOL KuHei for Chinese.
@@ -85,9 +85,9 @@ We chose Zhipu's GLM as our AI backbone for three reasons:
 
 1. **Accessible in China** — OpenAI's API is unreachable from Chinese networks. GLM is built by Zhipu AI, a Chinese company, and works reliably.
 2. **Fast** — GLM-4-Flash responds in 3-8 seconds for article generation. Perfect for a live demo.
-3. **CogView-3-Plus** generates photorealistic images — not illustrations, not art. Actual photo-like scenes that look like they belong in a vintage newspaper.
+3. **CogView-3-Flash** (free) generates photorealistic images — not illustrations, not art. Actual photo-like scenes that look like they belong in a vintage newspaper.
 
-One API key. Three models. Article, image, and achievements. Clean.
+One API key. Three models. Article, image, and achievements. Clean. And now the images are free.
 
 ---
 
