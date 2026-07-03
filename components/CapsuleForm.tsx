@@ -579,8 +579,8 @@ export default function CapsuleForm({
             />
             <span className="text-xs text-ink/70">
               {language === "zh"
-                ? "生成 AI 插图（消耗GLM积分）"
-                : "Generate AI illustration (uses GLM credits)"}
+                ? "生成 AI 插图（免费）"
+                : "Generate AI illustration (free)"}
             </span>
           </label>
 

@@ -5,9 +5,10 @@ export const maxDuration = 10;
 
 const GLM_IMAGE_ENDPOINT =
   "https://open.bigmodel.cn/api/paas/v4/images/generations";
-// CogView-3-Plus typically takes 6-8s, occasionally up to 9s.
-// Vercel hobby plan has a 10s hard limit — we use 9.5s to maximize chance.
-const TIMEOUT_MS = 9_500;
+// Using free CogView-3-Flash (zero credits) instead of paid CogView-3-Plus.
+// Flash is also faster (~3-5s) so it rarely hits the Vercel 10s limit.
+const IMAGE_MODEL = "cogview-3-flash";
+const TIMEOUT_MS = 9_000;
 
 // Rate limit: 10 image generations per minute per IP
 const RATE_LIMIT = 10;
@@ -68,7 +69,7 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${glmKey.trim()}`,
       },
       body: JSON.stringify({
-        model: "cogview-3-plus",
+        model: IMAGE_MODEL,
         prompt: sanitizedPrompt,
         n: 1,
         size: "1024x1024",
