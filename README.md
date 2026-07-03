@@ -52,9 +52,9 @@ Then **share it** via QR code or link. Open it on any device. The newspaper pers
 
 ### 🤖 AI-Powered Generation
 - **Articles** — GLM-4-Flash writes a 7-field broadsheet story
-- **Illustrations** — CogView-3-Plus generates photorealistic sepia images
+- **Illustrations** — CogView-3-Flash (free) generates photorealistic sepia images
 - **Achievements** — "Surprise Me" generates funny futuristic achievements
-- **Client-side images** — Browser calls GLM directly (bypasses server timeouts)
+- **Server-side images** — API route with 9s timeout for reliable Vercel execution
 
 </td>
 <td width="50%" valign="top">
@@ -105,18 +105,18 @@ Then **share it** via QR code or link. Open it on any device. The newspaper pers
                     ┌──────┴──────┐         ┌───────┴───────┐
                     │  GLM-4-Flash│         │  QR + Share   │
                     │  (article)  │         │  Link + PNG   │
-                    └─────────────┘         │  Download     │
-                           │                └───────────────┘
-                    ┌──────┴──────┐
-                    │ CogView-3-  │
-                    │ Plus (img)  │
-                    │ client-side │
-                    └─────────────┘
+                    │   server    │         │  Download     │
+                    └─────────────┘         └───────────────┘
+                           │
+                    ┌──────┴──────────┐
+                    │ CogView-3-Flash │
+                    │ (free, server)  │
+                    └─────────────────┘
 ```
 
 1. **Upload a photo** — compressed to 400×500px JPEG @ 0.7 (stays in browser as base64)
 2. **Fill the form** — name, team, achievement (or "Surprise Me"), future date
-3. **AI generates** — article (server-side GLM) + illustration (client-side GLM) run in parallel
+3. **AI generates** — article (GLM-4-Flash) + illustration (CogView-3-Flash, free) via server API routes
 4. **Newspaper renders** — full broadsheet with headline, story, pull quote, reward, photo, illustration
 5. **Share it** — QR code, copy link, or download as PNG
 6. **Archive** — saved to localStorage + server; view anytime via "My Newspapers"
@@ -173,8 +173,8 @@ ipconfig
 | **Framework** | Next.js 16.2.9 (App Router, Turbopack) | Modern React framework with SSR |
 | **UI** | React 19.2 + Tailwind CSS 3.4 | Fast, responsive, utility-first styling |
 | **Language** | TypeScript 5.5 | Type safety |
-| **Article AI** | Zhipu GLM-4-Flash (server-side) | Accessible in China, fast, free tier |
-| **Image AI** | Zhipu CogView-3-Plus (client-side) | Bypasses Vercel's 10s function limit |
+| **Article AI** | Zhipu GLM-4-Flash (server-side) | Fast, cheap text generation |
+| **Image AI** | Zhipu CogView-3-Flash (server-side) | Free image generation (~3-5s) |
 | **Achievement AI** | Zhipu GLM-4-Flash | Category-aware funny achievement generation |
 | **QR Codes** | qrcode.react 4.2 | SVG QR codes for sharing |
 | **Image Export** | html-to-image 1.11 | Download newspaper as PNG |
@@ -223,11 +223,9 @@ ipconfig
 
 | Variable | Required | Description |
 |---|---|---|
-| `GLM_API_KEY` | ✅ Yes | Zhipu GLM API key (server-side: articles + achievements) |
-| `NEXT_PUBLIC_GLM_API_KEY` | ✅ Yes | Same key, exposed to client for browser-side image generation |
+| `GLM_API_KEY` | ✅ Yes | Zhipu GLM API key (server-side: articles + images + achievements) |
 | `UPSTASH_REDIS_REST_URL` | 🔄 Prod only | Upstash Redis REST URL (auto-set by Vercel integration) |
 | `UPSTASH_REDIS_REST_TOKEN` | 🔄 Prod only | Upstash Redis REST token (auto-set by Vercel integration) |
-| `OPENAI_API_KEY` | ❌ Optional | Rarely used; OpenAI is unreachable in China |
 
 ---
 
@@ -237,7 +235,7 @@ ipconfig
 |---|---|---|
 | `POST` | `/api/generate-article` | Generate a 7-field newspaper article (GLM → template fallback) |
 | `POST` | `/api/generate-achievement` | Generate 3 funny achievements by category + language |
-| `POST` | `/api/generate-image` | Server-side image fallback (rarely used — images are client-side) |
+| `POST` | `/api/generate-image` | Generate sepia illustration via free CogView-3-Flash API |
 | `POST` | `/api/share` | Save newspaper → get 9-char share token (Redis/file) |
 | `GET` | `/api/share/:token` | Retrieve shared newspaper by token |
 | `GET` | `/api/capsules` | List all saved capsules (file JSON) |
@@ -298,7 +296,6 @@ future-time-capsule/
 2. Import repo at [vercel.com](https://vercel.com)
 3. Add environment variables:
    - `GLM_API_KEY`
-   - `NEXT_PUBLIC_GLM_API_KEY` (same value)
 4. (Optional) Add **Upstash Redis** integration from Vercel dashboard for persistent shares
 5. Deploy
 
@@ -324,14 +321,15 @@ npm start
 <details>
 <summary>Click to expand</summary>
 
-1. **Client-side image generation** — CogView takes 10-15s, exceeding Vercel's 10s function limit. Browser calls GLM directly with a 30s timeout.
-2. **GLM over OpenAI** — GLM is accessible in China; OpenAI endpoints timeout. OpenAI fallback removed entirely.
-3. **Upstash Redis for shares** — Vercel's filesystem is ephemeral. Redis persists shared newspapers across instances.
-4. **Image persistence as base64** — CogView image URLs expire. On share save, server downloads the image and converts to base64 data URL.
-5. **Environment-aware timeouts** — 5s on Vercel (10s function limit), 30s self-hosted (no limit).
-6. **No SVG image fallback** — If image generation fails, newspaper renders without illustration (no empty slot).
-7. **Photo compression** — 400×500px JPEG @ 0.7 (~50-100KB) prevents localStorage quota errors.
-8. **Hydration-safe QR codes** — `window.location.origin` computed in `useEffect`, not during render.
+1. **Server-side image generation** — CogView-3-Flash generates in ~3-5s, well within Vercel's 10s limit. Cleaner than client-side API key exposure.
+2. **Free image model** — Switched from paid CogView-3-Plus to free CogView-3-Flash. Same quality for sepia newspaper illustrations, zero cost.
+3. **GLM over OpenAI** — GLM is accessible in China; OpenAI endpoints timeout.
+4. **Article response cache** — 5-min TTL LRU cache prevents duplicate API calls for identical inputs.
+5. **Upstash Redis for shares** — Vercel's filesystem is ephemeral. Redis persists shared newspapers across instances.
+6. **Image persistence as base64** — CogView image URLs expire. On share save, server downloads the image and converts to base64 data URL.
+7. **No SVG image fallback** — If image generation fails, newspaper renders without illustration (no empty slot).
+8. **Photo compression** — 400×500px JPEG @ 0.7 (~50-100KB) prevents localStorage quota errors.
+9. **Hydration-safe QR codes** — `window.location.origin` computed in `useEffect`, not during render.
 
 </details>
 
@@ -353,7 +351,7 @@ All project docs are in [`.trae/documents/`](.trae/documents/):
 ## 🏆 Acknowledgments
 
 - **[TRAE Friends](https://www.trae.ai/)** — Hackathon platform
-- **[Zhipu AI](https://open.bigmodel.cn/)** — GLM-4-Flash & CogView-3-Plus
+- **[Zhipu AI](https://open.bigmodel.cn/)** — GLM-4-Flash & CogView-3-Flash
 - **[Upstash](https://upstash.com/)** — Serverless Redis
 - **[transparenttextures.com](https://www.transparenttextures.com/)** — Paper texture
 
