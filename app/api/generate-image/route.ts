@@ -80,31 +80,35 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      console.error(
-        `[generate-image] GLM ${res.status}: ${text.slice(0, 300)}`,
+      const detail = `GLM ${res.status}: ${text.slice(0, 300)}`;
+      console.error(`[generate-image] ${detail}`);
+      return NextResponse.json(
+        { src: null, provider: "none", error: detail },
+        { status: 200 },
       );
-      return NextResponse.json({ src: null, provider: "none" });
     }
 
     const data = await res.json();
     const imgUrl: string | undefined = data?.data?.[0]?.url;
 
     if (!imgUrl) {
-      console.error(
-        "[generate-image] No URL in response:",
-        JSON.stringify(data).slice(0, 200),
+      const detail = `No URL in response: ${JSON.stringify(data).slice(0, 200)}`;
+      console.error(`[generate-image] ${detail}`);
+      return NextResponse.json(
+        { src: null, provider: "none", error: detail },
+        { status: 200 },
       );
-      return NextResponse.json({ src: null, provider: "none" });
     }
 
     console.log("[generate-image] GLM succeeded");
     return NextResponse.json({ src: imgUrl, provider: "glm" });
   } catch (err) {
     clearTimeout(timer);
-    console.error(
-      "[generate-image] Failed:",
-      err instanceof Error ? err.message : err,
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[generate-image] Failed: ${detail}`);
+    return NextResponse.json(
+      { src: null, provider: "none", error: detail },
+      { status: 200 },
     );
-    return NextResponse.json({ src: null, provider: "none" });
   }
 }

@@ -43,8 +43,14 @@ async function generateImageServerSide(prompt: string): Promise<string | null> {
       body: JSON.stringify({ prompt }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn("[generate-image] HTTP", res.status);
+      return null;
+    }
     const data = await res.json();
+    if (!data?.src && data?.error) {
+      console.warn("[generate-image] API error:", data.error);
+    }
     return data?.src || null;
   } catch (err) {
     console.warn(
@@ -61,27 +67,47 @@ async function generateImageServerSide(prompt: string): Promise<string | null> {
  * CogView works best with prompts under ~150 characters, so we keep it tight.
  *
  * Structure: [achievement subject] + [AI scene description] + [style keywords]
+ *
+ * CRITICAL: Style keywords are NEVER truncated — they're the suffix and must
+ * remain intact. Content (achievement + scene) is trimmed to fit the budget.
  */
 function buildImagePrompt(
   achievement: string,
   aiImagePrompt: string,
   year: string,
 ): string {
-  // Trim achievement to the core subject (max 60 chars)
-  const ach = achievement.trim().slice(0, 60);
-  // Trim AI scene description (max 50 chars)
-  const scene = aiImagePrompt?.trim().slice(0, 50) || "";
+  const scene = aiImagePrompt?.trim() || "";
 
-  // Combine: achievement is the SUBJECT, AI prompt adds SCENE context
-  let prompt: string;
-  if (scene) {
-    prompt = `${ach}. ${scene}, futuristic ${year}, photorealistic sepia newspaper photo, no people no faces`;
+  // Style suffix — must always be complete (never truncated mid-word)
+  const styleSuffix = scene
+    ? `, futuristic ${year}, photorealistic sepia newspaper photo, no people no faces`
+    : `, futuristic ${year} scene, photorealistic sepia newspaper photo, no people no faces`;
+
+  const MAX_TOTAL = 180;
+  const suffixLen = styleSuffix.length;
+  const budget = MAX_TOTAL - suffixLen; // chars available for content
+
+  // Trim content to fit within budget, preferring to keep the achievement whole
+  const ach = achievement.trim();
+  let content: string;
+
+  if (scene && ach.length + scene.length + 2 <= budget) {
+    // Both fit: "achievement. scene"
+    content = `${ach}. ${scene}`;
+  } else if (ach.length <= budget) {
+    // Only achievement fits
+    content = ach.slice(0, budget);
+  } else if (scene && scene.length <= budget) {
+    // Only scene fits (fallback)
+    content = scene.slice(0, budget);
   } else {
-    prompt = `${ach}, futuristic ${year} scene, photorealistic sepia newspaper photo, no people no faces`;
+    // Neither fully fits — take as much achievement as possible, break at word boundary
+    const truncated = ach.slice(0, budget);
+    const lastSpace = truncated.lastIndexOf(" ");
+    content = lastSpace > budget * 0.5 ? truncated.slice(0, lastSpace) : truncated;
   }
 
-  // Hard cap at 180 chars to avoid CogView rejection
-  return prompt.slice(0, 180);
+  return `${content}${styleSuffix}`;
 }
 
 export default function FormPage() {
