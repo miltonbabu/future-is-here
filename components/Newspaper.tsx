@@ -71,10 +71,19 @@ export default function Newspaper({
         backgroundColor: "#f4ead5",
         skipFonts: true,
       });
+
+      // Convert base64 data URL to Blob to avoid browser size limits
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+
       const link = document.createElement("a");
       link.download = `future-times-${dateInfo.year}.png`;
-      link.href = dataUrl;
+      link.href = objectUrl;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
     } catch {
       /* download failed */
     } finally {
