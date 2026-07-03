@@ -84,17 +84,61 @@ export default function Newspaper({
       const wrapper = articleRef.current;
 
       // Find the actual rendered <article> element (not the wrapper div).
-      // Capturing the article directly avoids full-viewport canvas + empty space.
-      const articleEl = wrapper.querySelector("article");
+      const articleEl = wrapper.querySelector("article") as HTMLElement | null;
       if (!articleEl) {
         setDownloading(false);
         return;
       }
 
-      // ── 1. Convert external <img> sources to same-origin data URLs ──
-      const imgs = articleEl.querySelectorAll<HTMLImageElement>("img");
-      const restoreImgs: Array<{ img: HTMLImageElement; src: string }> = [];
-      for (const img of imgs) {
+      // ── 1. Clone the article & strip problematic CSS ──
+      //    We clone so we can aggressively strip CSS without visual flicker,
+      //    and so the clone gets fresh computed styles in the document flow.
+      const clone = articleEl.cloneNode(true) as HTMLElement;
+
+      // Position offscreen but in document flow (required for computed styles)
+      clone.style.position = "fixed";
+      clone.style.left = "-9999px";
+      clone.style.top = "0";
+      clone.style.zIndex = "-1";
+      clone.style.width = articleEl.offsetWidth + "px";
+
+      // Strip cross-origin background image + blend mode
+      clone.style.backgroundImage = "none";
+      clone.style.backgroundColor = "#f4ead5";
+      clone.style.backgroundBlendMode = "normal";
+
+      // Strip ::before / ::after pseudo content on clone children
+      const allCloneEls = clone.querySelectorAll<HTMLElement>("*");
+      for (const el of allCloneEls) {
+        el.style.setProperty("--tw-content", "none");
+      }
+
+      // Force single column — foreignObject cannot render CSS columns
+      const columnEls = clone.querySelectorAll<HTMLElement>(
+        "[class*='columns-']",
+      );
+      for (const el of columnEls) {
+        el.style.columnCount = "1";
+        el.style.columnRule = "none";
+        el.style.columnGap = "0";
+      }
+
+      // Remove drop-cap class (::first-letter pseudo-elements break in foreignObject)
+      const dropCaps = clone.querySelectorAll<HTMLElement>(".drop-cap");
+      for (const el of dropCaps) {
+        el.classList.remove("drop-cap");
+      }
+
+      // Remove CSS transforms (rotate on polaroid frames can cause render issues)
+      const polaroids = clone.querySelectorAll<HTMLElement>(".polaroid-frame");
+      for (const el of polaroids) {
+        el.style.transform = "none";
+      }
+
+      // Handle all images in clone: remove external filters and convert external sources
+      const cloneImgs = clone.querySelectorAll<HTMLImageElement>("img");
+      for (const img of cloneImgs) {
+        // Keep filters for visual accuracy, but handle external URLs
         if (img.src.startsWith("http://") || img.src.startsWith("https://")) {
           try {
             const resp = await fetch(img.src);
@@ -105,7 +149,6 @@ export default function Newspaper({
               reader.onerror = reject;
               reader.readAsDataURL(imgBlob);
             });
-            restoreImgs.push({ img, src: img.src });
             img.src = dataUrl;
           } catch {
             /* skip images that fail to fetch */
@@ -113,44 +156,25 @@ export default function Newspaper({
         }
       }
 
-      // ── 2. Replace cross-origin newspaper-paper background with solid color ──
-      //    (cream-paper.png from transparenttextures.com taints the canvas)
-      const origBgImage = articleEl.style.backgroundImage;
-      const origBgColor = articleEl.style.backgroundColor;
-      articleEl.style.backgroundImage = "none";
-      articleEl.style.backgroundColor = "#f4ead5";
+      // Append clone to body so computed styles render correctly
+      document.body.appendChild(clone);
+      // Brief pause for layout + paint
+      await new Promise((r) => setTimeout(r, 150));
 
-      // ── 3. Disable CSS multi-column — html-to-image SVG foreignObject ──
-      //    cannot render column-count, causing newspaper mode to fail.
-      const columnEls = articleEl.querySelectorAll<HTMLElement>(
-        "[class*='columns-']",
-      );
-      const restoreColumns: Array<{ el: HTMLElement; val: string }> = [];
-      for (const el of columnEls) {
-        restoreColumns.push({ el, val: el.style.columnCount });
-        el.style.columnCount = "1";
-      }
-
-      // ── 4. Capture ──
+      // ── 2. Capture the clone ──
       const pixelRatio = isMobile() ? 1 : 2;
-      const dataUrl = await toPng(articleEl, {
+      const dataUrl = await toPng(clone, {
         quality: 0.95,
         pixelRatio,
         backgroundColor: "#f4ead5",
         skipFonts: true,
+        cacheBust: true,
       });
 
-      // ── 5. Restore all overrides ──
-      articleEl.style.backgroundImage = origBgImage;
-      articleEl.style.backgroundColor = origBgColor;
-      for (const { el, val } of restoreColumns) {
-        el.style.columnCount = val;
-      }
-      for (const { img, src } of restoreImgs) {
-        img.src = src;
-      }
+      // ── 3. Remove clone from DOM ──
+      document.body.removeChild(clone);
 
-      // ── 6. Download ──
+      // ── 4. Download ──
       const blob = dataUrlToBlob(dataUrl);
       const filename = `future-times-${dateInfo.year}.png`;
 
@@ -175,6 +199,9 @@ export default function Newspaper({
       }
     } catch (err) {
       console.error("[download] failed:", err);
+      alert(
+        "Image download failed. Please take a screenshot instead, or try a different browser.",
+      );
     } finally {
       setDownloading(false);
     }
@@ -411,6 +438,16 @@ export default function Newspaper({
                     {name}
                   </figcaption>
                 </div>
+              </div>
+            )}
+            {imageUrl && (
+              <div className="border border-ink p-0.5 bg-[#f4ead5] mb-4 mx-auto max-w-[240px]">
+                <img
+                  src={imageUrl}
+                  alt="illustration"
+                  className="w-full max-h-36 object-cover"
+                  style={{ filter: ILLUSTRATION_FILTER }}
+                />
               </div>
             )}
             <h3

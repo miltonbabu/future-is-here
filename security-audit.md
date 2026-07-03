@@ -161,6 +161,28 @@
 
 ---
 
+## Post-Audit Fixes (2026-07-03, Round 2)
+
+### 10. 🟡 Medium: Download Broken for Newspaper & WeChat Moments
+**File:** `components/Newspaper.tsx`
+**Issue:** `html-to-image` download failed for Newspaper and WeChat Moments share modes. The SVG `foreignObject` approach cannot render CSS multi-column layout (`columns-2`), `::first-letter` pseudo-elements (`.drop-cap`), and is sensitive to cross-origin background images (`transparenttextures.com`) and CSS transforms (`.polaroid-frame` rotation).
+
+**Risk:** Users couldn't save their newspaper as an image in 2 out of 3 share modes.
+
+**Fix:** Rewrote `handleDownload()` with a clone+offscreen approach:
+- Clone the `<article>` element, position offscreen, apply all CSS fixes to the clone (not live DOM)
+- Strip: background-image, blend-mode, multi-column, drop-cap class, polaroid transforms
+- Append clone to body for computed styles, capture with `toPng({ cacheBust: true })`, remove clone
+- Added user-visible `alert()` on failure (previously silent `console.error`)
+
+### 11. 🟢 Low: Card Version Missing AI Illustration
+**File:** `components/Newspaper.tsx`
+**Issue:** The Card share mode rendered the user's photo but never displayed the AI-generated illustration (`imageUrl`), unlike the other two modes.
+
+**Fix:** Added `{imageUrl && (...)}` block in the Card `<article>` with vintage border + sepia filter, constrained to `max-w-[240px]`.
+
+---
+
 ## New Security Infrastructure
 
 **`lib/security.ts`** — Centralized security utilities:

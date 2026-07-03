@@ -16,12 +16,13 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        // English — Special Elite headlines + Courier Prime body (newspaper)
+        // English — Playfair Display headlines (classic newspaper serif)
         headline: [
-          '"Special Elite"',
-          '"Courier Prime"',
-          "Courier",
-          "monospace",
+          '"Playfair Display"',
+          '"Libre Caslon Display"',
+          "Georgia",
+          '"Times New Roman"',
+          "serif",
         ],
         body: ['"Courier Prime"', "Courier", "monospace"],
         // English serif — Libre Caslon + Lora (landing page only)
@@ -32,16 +33,12 @@ const config: Config = {
           "serif",
         ],
         "landing-body": ['"Lora"', '"Libre Caslon Text"', "Georgia", "serif"],
-        // Chinese — serif first, sans as fallback
+        // Chinese — bold serif newspaper fonts, no playful/display fonts
         "headline-zh": [
           '"Noto Serif SC"',
-          '"ZCOOL KuHei"',
-          "Plix",
-          "Ruizi JunXian Medium",
-          "TASA Explorer",
-          "DianZi FangHei",
-          "XinYugong PinTi",
-          '"Noto Sans SC"',
+          "SimSun",
+          '"STSong"',
+          '"Songti SC"',
           "serif",
         ],
         "body-zh": [

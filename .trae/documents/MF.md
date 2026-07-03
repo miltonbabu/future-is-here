@@ -434,3 +434,47 @@ npm start                    # binds to 0.0.0.0:3000
 ---
 
 *This MF file is the single source of truth for recreating the Future Time Capsule app.*
+
+---
+
+## 12. CHANGELOG — Recent Updates
+
+### 2026-07-03
+
+#### 12.1 Newspaper Font Overhaul (English + Chinese)
+- **English headlines**: Changed from `Special Elite` (distressed typewriter) to **`Playfair Display`** + `Libre Caslon Display` (classic broadsheet serif) — much more newspaper-authentic
+- **Chinese headlines**: Changed to **`Noto Serif SC`** with `SimSun`/`STSong` fallbacks (removed `ZCOOL KuHei` — too playful, not newspaper-like)
+- **Drop-cap**: Updated `.drop-cap::first-letter` font-family to match the new headline serif stack
+- **Google Fonts**: Added `Playfair Display`, removed `ZCOOL KuHei`
+- **Tailwind config**: Updated `fontFamily.headline` and `fontFamily.headline-zh` to match
+
+#### 12.2 Download Fix — Clone + Offscreen Approach (All Versions)
+- **Problem**: `html-to-image` download worked for Card version but failed for Newspaper and WeChat Moments
+- **Root cause**: SVG `foreignObject` cannot render CSS multi-column layout, `::first-letter` pseudo-elements, and can be sensitive to external background images + transforms
+- **Fix**: Rewrote `handleDownload()` in `Newspaper.tsx`:
+  - **Clone the `<article>` element** instead of modifying live DOM — no visual flicker, no restore needed
+  - Position clone offscreen (`fixed; left: -9999px`) so computed styles render correctly
+  - **Aggressively strip problematic CSS from clone**:
+    - `background-image` → solid `#f4ead5` (cross-origin paper texture)
+    - `background-blend-mode` → `normal`
+    - `columnCount` → `"1"`, `columnRule` → `"none"`, `columnGap` → `"0"` (SVG foreignObject limitation)
+    - `.drop-cap` class → removed (`::first-letter` unsupported in foreignObject)
+    - `.polaroid-frame` `transform: rotate(-2deg)` → `none`
+  - Convert external `<img>` sources to data URLs on the clone
+  - Append clone to body, wait 150ms for layout, capture with `toPng({ cacheBust: true })`, remove clone
+  - **Added user-visible `alert()` on failure** (previously silent)
+
+#### 12.3 Card Version — Added AI-Generated Illustration
+- **Problem**: Card share mode displayed the user's photo but never showed the AI-generated illustration (`imageUrl`)
+- **Fix**: Added `{imageUrl && (...)}` block in the Card `<article>`, between the polaroid photo and headline
+  - Styled with vintage newspaper border + sepia filter (`ILLUSTRATION_FILTER`), matching the other two versions
+  - Max width constrained to `240px` to fit the card layout (`max-w-sm`)
+
+#### 12.4 Security Hardening (12 fixes applied)
+See `security-audit.md` for full details. Key changes:
+- **Rate limiting** on all API routes (capsules, share, generate-article, generate-achievement)
+- **Input validation** — regex-based field sanitization, length caps, script/style tag stripping
+- **SSRF protection** — `isSafeUrl()` validation before any server-side fetch
+- **Token validation** — `TOKEN_RE` regex on share token lookups
+- **Server-side image generation** — moved CogView call from client (exposed `NEXT_PUBLIC_GLM_API_KEY`) to server proxy route
+- **Security headers** — CSP, X-Frame-Options, Referrer-Policy, etc.
