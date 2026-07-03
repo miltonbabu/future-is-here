@@ -140,6 +140,7 @@ export default function FormPage() {
           futureDate: decoded.futureDate,
           language: decoded.language,
           category: "default",
+          useAI: false,
         });
         setLanguage(decoded.language);
         setView("result");
@@ -164,6 +165,7 @@ export default function FormPage() {
               futureDate: data.futureDate,
               language: data.language,
               category: "default",
+              useAI: false,
             });
             setLanguage(data.language);
             setShareUrl(`${window.location.origin}/share/${match[1]}`);
@@ -198,18 +200,19 @@ export default function FormPage() {
       }
 
       let resolvedImageUrl: string | null = null;
-      try {
-        // Build image prompt from BOTH the achievement text AND the AI-generated
-        // image_prompt. Achievement = subject, AI prompt = scene context.
-        const year = input.futureDate?.split("-")[0] || "2032";
-        const illustrationPrompt = buildImagePrompt(
-          input.achievement,
-          articleData.article.image_prompt,
-          year,
-        );
-        console.log("[image] Image prompt:", illustrationPrompt);
-        resolvedImageUrl = await generateImageServerSide(illustrationPrompt);
-      } catch {}
+      // Only call CogView-3-Plus (expensive) when user explicitly opted in
+      if (input.useAI) {
+        try {
+          const year = input.futureDate?.split("-")[0] || "2032";
+          const illustrationPrompt = buildImagePrompt(
+            input.achievement,
+            articleData.article.image_prompt,
+            year,
+          );
+          console.log("[image] Image prompt:", illustrationPrompt);
+          resolvedImageUrl = await generateImageServerSide(illustrationPrompt);
+        } catch {}
+      }
 
       setArticle(articleData.article);
       setImageUrl(resolvedImageUrl);
@@ -290,6 +293,7 @@ export default function FormPage() {
       futureDate: cap.futureDate,
       language: cap.language,
       category: "default",
+      useAI: false,
     });
     setLanguage(cap.language);
     setShareUrl(cap.shareUrl);
