@@ -29,11 +29,11 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js requires unsafe-inline + unsafe-eval for dev
-              "style-src 'self' 'unsafe-inline'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://open.bigmodel.cn https://api.openai.com",
+              "connect-src 'self' https:", // allow fetch to any HTTPS (GLM, CogView watermark, image download conversion)
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
