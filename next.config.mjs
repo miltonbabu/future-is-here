@@ -34,6 +34,7 @@ const nextConfig = {
               "img-src 'self' data: https: blob:",
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https:", // allow fetch to any HTTPS (GLM, CogView watermark, image download conversion)
+              "frame-src https://vercel.live",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

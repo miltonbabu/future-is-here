@@ -135,10 +135,11 @@ export default function Newspaper({
         el.style.transform = "none";
       }
 
-      // Handle all images in clone: remove external filters and convert external sources
+      // Handle all images in clone: convert external sources or remove them
+      // CORS-blocked images (e.g. CogView watermark) taint the canvas and break
+      // toPng entirely, so they MUST be removed, not just skipped.
       const cloneImgs = clone.querySelectorAll<HTMLImageElement>("img");
       for (const img of cloneImgs) {
-        // Keep filters for visual accuracy, but handle external URLs
         if (img.src.startsWith("http://") || img.src.startsWith("https://")) {
           try {
             const resp = await fetch(img.src);
@@ -151,7 +152,8 @@ export default function Newspaper({
             });
             img.src = dataUrl;
           } catch {
-            /* skip images that fail to fetch */
+            // CORS-blocked or unreachable — remove from clone to avoid canvas taint
+            img.remove();
           }
         }
       }
